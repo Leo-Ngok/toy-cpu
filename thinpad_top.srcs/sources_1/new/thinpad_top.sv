@@ -102,109 +102,249 @@ module thinpad_top (
     if (~locked) reset_of_clk10M <= 1'b1;
     else reset_of_clk10M <= 1'b0;
   end
+  logic sys_clk;
+  logic sys_rst;
 
-  always_ff @(posedge clk_10M or posedge reset_of_clk10M) begin
-    if (reset_of_clk10M) begin
-      // Your Code
-    end else begin
-      // Your Code
-    end
-  end
-
-  // 不使用内存、串口时，禁用其使能信号
-  assign base_ram_ce_n = 1'b1;
-  assign base_ram_oe_n = 1'b1;
-  assign base_ram_we_n = 1'b1;
-
-  assign ext_ram_ce_n = 1'b1;
-  assign ext_ram_oe_n = 1'b1;
-  assign ext_ram_we_n = 1'b1;
+  assign sys_clk = clk_10M;
+  assign sys_rst = reset_of_clk10M;
 
   assign uart_rdn = 1'b1;
   assign uart_wrn = 1'b1;
 
-  // 数码管连接关系示意图，dpy1 同理
-  // p=dpy0[0] // ---a---
-  // c=dpy0[1] // |     |
-  // d=dpy0[2] // f     b
-  // e=dpy0[3] // |     |
-  // b=dpy0[4] // ---g---
-  // a=dpy0[5] // |     |
-  // f=dpy0[6] // e     c
-  // g=dpy0[7] // |     |
-  //           // ---d---  p
+  wire        dau_we;
+  wire        dau_re;
+  wire [31:0] dau_addr;
+  wire [ 3:0] dau_byte_en;
+  wire [31:0] dau_data_write;
+  wire [31:0] dau_data_read;
+  wire        dau_ack;
+  
+  wire        dau_instr_re;
+  wire [31:0] dau_instr_addr;
+  wire [31:0] dau_instr_data;
+  wire        dau_instr_ack;
 
-  // 7 段数码管译码器演示，将 number 用 16 进制显示在数码管上面
-  logic [7:0] number;
-  SEG7_LUT segL (
-      .oSEG1(dpy0),
-      .iDIG (number[3:0])
-  );  // dpy0 是低位数码管
-  SEG7_LUT segH (
-      .oSEG1(dpy1),
-      .iDIG (number[7:4])
-  );  // dpy1 是高位数码管
+  wire        i_cache_bypass;
+  wire        i_cache_invalidate;
 
-  logic [15:0] led_bits;
-  assign leds = led_bits;
+  wire        i_cache_re;
+  wire [31:0] i_cache_addr;
+  wire [31:0] i_cache_data;
+  wire        i_cache_ack;
 
-  always_ff @(posedge push_btn or posedge reset_btn) begin
-    if (reset_btn) begin  // 复位按下，设置 LED 为初始值
-      led_bits <= 16'h1;
-    end else begin  // 每次按下按钮开关，LED 循环左移
-      led_bits <= {led_bits[14:0], led_bits[15]};
-    end
-  end
+  wire        d_cache_bypass;
+  wire        d_cache_we;
+  wire        d_cache_re;
+  wire [31:0] d_cache_addr;
+  wire [ 3:0] d_cache_be;
+  wire [31:0] d_cache_data_departure;
+  wire        d_cache_ack;
+  wire [31:0] d_cache_data_arrival;
 
-  // 直连串口接收发送演示，从直连串口收到的数据再发送出去
-  logic [7:0] ext_uart_rx;
-  logic [7:0] ext_uart_buffer, ext_uart_tx;
-  logic ext_uart_ready, ext_uart_clear, ext_uart_busy;
-  logic ext_uart_start, ext_uart_avai;
+  wire        d_cache_clear;
+  wire        d_cache_clear_complete;
 
-  assign number = ext_uart_buffer;
+  parameter ADDR_WIDTH = 5;
+  parameter DATA_WIDTH = 32;
+  wire [ADDR_WIDTH - 1 : 0] rf_raddr1;
+  wire [DATA_WIDTH - 1 : 0] rf_rdata1;
 
-  // 接收模块，9600 无检验位
-  async_receiver #(
-      .ClkFrequency(50000000),
-      .Baud(9600)
-  ) ext_uart_r (
-      .clk           (clk_50M),         // 外部时钟信号
-      .RxD           (rxd),             // 外部串行信号输入
-      .RxD_data_ready(ext_uart_ready),  // 数据接收到标志
-      .RxD_clear     (ext_uart_clear),  // 清除接收标志
-      .RxD_data      (ext_uart_rx)      // 接收到的一字节数据
+  wire [ADDR_WIDTH - 1 : 0] rf_raddr2;
+  wire [DATA_WIDTH - 1 : 0] rf_rdata2;
+
+  wire rf_we;
+  wire [ADDR_WIDTH - 1 : 0] rf_waddr;
+  wire [DATA_WIDTH - 1 : 0] rf_wdata;
+
+  wire [31:0] alu_opcode;
+  wire [DATA_WIDTH - 1 : 0] alu_in1;
+  wire [DATA_WIDTH - 1 : 0] alu_in2;
+  wire [DATA_WIDTH - 1 : 0] alu_out;
+
+  wire local_intr;
+
+  wire step;
+
+
+  cache icache(
+    .clock(sys_clk),
+    .reset(sys_rst),
+    
+    .bypass(i_cache_bypass),
+    .flush(1'b0),
+    .invalidate(i_cache_invalidate),
+    .clear_complete(),
+
+    .cu_we  (1'b0),
+    .cu_re  (i_cache_re),
+    .cu_addr(i_cache_addr),
+    .cu_be  (4'b1111),
+    .cu_data_i(32'b0),
+    .cu_ack (i_cache_ack),
+    .cu_data_o(i_cache_data),
+
+    .dau_we  (),
+    .dau_re  (dau_instr_re),
+    .dau_addr(dau_instr_addr),
+    .dau_be  (),
+    .dau_data_o(),
+    .dau_ack (dau_instr_ack),
+    .dau_data_i(dau_instr_data)
   );
 
-  assign ext_uart_clear = ext_uart_ready; // 收到数据的同时，清除标志，因为数据已取到 ext_uart_buffer 中
-  always_ff @(posedge clk_50M) begin  // 接收到缓冲区 ext_uart_buffer
-    if (ext_uart_ready) begin
-      ext_uart_buffer <= ext_uart_rx;
-      ext_uart_avai   <= 1;
-    end else if (!ext_uart_busy && ext_uart_avai) begin
-      ext_uart_avai <= 0;
-    end
-  end
-  always_ff @(posedge clk_50M) begin  // 将缓冲区 ext_uart_buffer 发送出去
-    if (!ext_uart_busy && ext_uart_avai) begin
-      ext_uart_tx <= ext_uart_buffer;
-      ext_uart_start <= 1;
-    end else begin
-      ext_uart_start <= 0;
-    end
-  end
+  cache dcache(
+    .clock(sys_clk),
+    .reset(sys_rst),
 
-  // 发送模块，9600 无检验位
-  async_transmitter #(
-      .ClkFrequency(50000000),
-      .Baud(9600)
-  ) ext_uart_t (
-      .clk      (clk_50M),         // 外部时钟信号
-      .TxD      (txd),             // 串行信号输出
-      .TxD_busy (ext_uart_busy),   // 发送器忙状态指示
-      .TxD_start(ext_uart_start),  // 开始发送信号
-      .TxD_data (ext_uart_tx)      // 待发送的数据
+    .bypass(d_cache_bypass), /* Hardwire to 1 if you want to explicitly disable D-cache. */
+    .flush(d_cache_clear), 
+    .invalidate(1'b0),
+    .clear_complete(d_cache_clear_complete),
+
+    // TO CU.
+    .cu_we  (d_cache_we),
+    .cu_re  (d_cache_re),
+    .cu_addr(d_cache_addr),
+    .cu_be  (d_cache_be),
+    .cu_data_i(d_cache_data_departure),
+    .cu_ack (d_cache_ack),
+    .cu_data_o(d_cache_data_arrival),
+    // TO DAU
+    .dau_we  (dau_we),
+    .dau_re  (dau_re),
+    .dau_addr(dau_addr),
+    .dau_be  (dau_byte_en),
+    .dau_data_o(dau_data_write),
+    .dau_ack (dau_ack),
+    .dau_data_i(dau_data_read)
   );
+
+  dau_unified dau(
+    .sys_clk(sys_clk),
+    .sys_rst(sys_rst),
+
+    .instr_re_i  (dau_instr_re  ),
+    .instr_addr_i(dau_instr_addr),
+    .instr_data_o(dau_instr_data),
+    .instr_ack_o (dau_instr_ack ),
+
+    .we_i   (dau_we        ),
+    .re_i   (dau_re        ),
+    .addr_i (dau_addr      ),
+    .byte_en(dau_byte_en   ),
+    .data_i (dau_data_write),
+    .data_o (dau_data_read ),
+    .ack_o  (dau_ack       ),
+
+    .base_ram_data(base_ram_data),
+    .base_ram_addr(base_ram_addr),
+    .base_ram_be_n(base_ram_be_n),
+    .base_ram_ce_n(base_ram_ce_n),
+    .base_ram_oe_n(base_ram_oe_n),
+    .base_ram_we_n(base_ram_we_n),
+
+    .ext_ram_data(ext_ram_data),
+    .ext_ram_addr(ext_ram_addr),
+    .ext_ram_be_n(ext_ram_be_n),
+    .ext_ram_ce_n(ext_ram_ce_n),
+    .ext_ram_oe_n(ext_ram_oe_n),
+    .ext_ram_we_n(ext_ram_we_n),
+
+    .rxd(rxd),
+    .txd(txd),
+
+    .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
+    .flash_d(flash_d),  // Flash 数据
+    .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
+    .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
+    .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
+    .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
+    .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
+    .flash_byte_n(flash_byte_n), // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
+
+    .local_intr(local_intr)
+  );
+
+  register_file registers(
+    .clock(sys_clk),
+    .reset(sys_rst),
+
+    .read_addr1(rf_raddr1),
+    .read_data1(rf_rdata1),
+
+    .read_addr2(rf_raddr2),
+    .read_data2(rf_rdata2),
+
+    .we        (rf_we   ),
+    .write_addr(rf_waddr),
+    .write_data(rf_wdata)
+  );
+  defparam registers.WIDTH = 32;
+
+  riscv_alu ralu(
+    .opcode(alu_opcode),
+    .in_1  (alu_in1),
+    .in_2  (alu_in2),
+    .out   (alu_out)
+  );
+  
+  // debouncer deb( 
+  //   .CLOCK(sys_clk), 
+  //   .RESET(sys_rst), 
+  //   .PUSH_I(push_btn), 
+  //   .PULSE_OUT(step)
+  // );
+  wire [31:0] debug_ip;
+  cu_pipeline control_unit(
+    .clk(sys_clk),
+    .rst(sys_rst),
+    
+    .dau_instr_re_o  (i_cache_re),
+    .dau_instr_addr_o(i_cache_addr),
+    .dau_instr_ack_i (i_cache_ack),
+    .dau_instr_data_i(i_cache_data),
+    .dau_instr_bypass_o(i_cache_bypass),
+    .dau_instr_cache_invalidate(i_cache_invalidate),
+
+    .dau_we_o   (d_cache_we),
+    .dau_re_o   (d_cache_re),
+    .dau_addr_o (d_cache_addr),
+    .dau_byte_en(d_cache_be),
+    .dau_data_i (d_cache_data_arrival),
+    .dau_data_o (d_cache_data_departure),
+    .dau_ack_i  (d_cache_ack),
+
+    .dau_bypass_o(d_cache_bypass), 
+    .dau_cache_clear(d_cache_clear),
+    .dau_cache_clear_complete(d_cache_clear_complete),
+
+    .rf_raddr1(rf_raddr1),
+    .rf_rdata1(rf_rdata1),
+
+    .rf_raddr2(rf_raddr2),
+    .rf_rdata2(rf_rdata2),
+
+    .rf_waddr(rf_waddr),
+    .rf_wdata(rf_wdata),
+    .rf_we   (rf_we   ),
+
+    .alu_opcode(alu_opcode),
+    .alu_in1   (alu_in1   ),
+    .alu_in2   (alu_in2   ),
+    .alu_out   (alu_out   ),
+
+    .step(step),
+    .dip_sw(dip_sw),
+    .touch_btn(touch_btn),
+    .dpy0(dpy0),
+    .dpy1(dpy1),
+    .leds(leds),
+    //.curr_ip_out(debug_ip),
+
+    .local_intr(local_intr),
+    .mtime(dau.clint.mtime)
+  );
+
 
   // 图像输出演示，分辨率 800x600@75Hz，像素时钟为 50MHz
   logic [11:0] hdata;

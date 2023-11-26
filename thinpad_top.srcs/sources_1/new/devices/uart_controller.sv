@@ -99,25 +99,28 @@ module uart_controller #(
   always_ff @(posedge clk_i) begin
     if(rst_i) begin
       rxd_clear <= 1;  // clear rxd to initialize dataready
+      wb_dat_o <= 32'b0;
     end else if(wb_stb_i && !wb_we_i) begin
       case (wb_adr_i[7:0])
         REG_DATA: begin
-          if (wb_sel_i[0]) wb_dat_o[7:0] <= rxd_data;
-          if (wb_sel_i[1]) wb_dat_o[15:8] <= rxd_data;
-          if (wb_sel_i[2]) wb_dat_o[23:16] <= rxd_data;
-          if (wb_sel_i[3]) wb_dat_o[31:24] <= rxd_data;
+          if (wb_sel_i[0]) wb_dat_o <= { 24'b0, rxd_data        };
+          if (wb_sel_i[1]) wb_dat_o <= { 16'b0, rxd_data,  8'b0 };
+          if (wb_sel_i[2]) wb_dat_o <= {  8'b0, rxd_data, 16'b0 };
+          if (wb_sel_i[3]) wb_dat_o <= {        rxd_data, 24'b0 };
 
           rxd_clear <= 1;
         end
 
         REG_STATUS: begin
-          if (wb_sel_i[0]) wb_dat_o[7:0] <= reg_status;
-          if (wb_sel_i[1]) wb_dat_o[15:8] <= reg_status;
-          if (wb_sel_i[2]) wb_dat_o[23:16] <= reg_status;
-          if (wb_sel_i[3]) wb_dat_o[31:24] <= reg_status;
+          if (wb_sel_i[0]) wb_dat_o <= { 24'b0, reg_status        };
+          if (wb_sel_i[1]) wb_dat_o <= { 16'b0, reg_status,  8'b0 };
+          if (wb_sel_i[2]) wb_dat_o <= {  8'b0, reg_status, 16'b0 };
+          if (wb_sel_i[3]) wb_dat_o <= {        reg_status, 24'b0 };
+
+          rxd_clear <= 0;
         end
 
-        default: ;  // do nothing
+        default: rxd_clear <= 0;  // do nothing
       endcase
     end else begin
       rxd_clear <= 0;

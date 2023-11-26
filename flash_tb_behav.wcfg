@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="flash_tb_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="flash_tb" />
+            <top_module name="glbl" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="37600000fs"></ZoomStartTime>
+      <ZoomEndTime time="38440001fs"></ZoomEndTime>
+      <Cursor1Time time="38170000fs"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="139"></NameColumnWidth>
+      <ValueColumnWidth column_width="136"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="33" />
+   <wvobject fp_name="/flash_tb/clk_50M" type="logic">
+      <obj_property name="ElementShortName">clk_50M</obj_property>
+      <obj_property name="ObjectShortName">clk_50M</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/reset" type="logic">
+      <obj_property name="ElementShortName">reset</obj_property>
+      <obj_property name="ObjectShortName">reset</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/state" type="array">
+      <obj_property name="ElementShortName">state[7:0]</obj_property>
+      <obj_property name="ObjectShortName">state[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/cycle_counter" type="array">
+      <obj_property name="ElementShortName">cycle_counter[7:0]</obj_property>
+      <obj_property name="ObjectShortName">cycle_counter[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/flash_addr_o_r" type="array">
+      <obj_property name="ElementShortName">flash_addr_o_r[22:0]</obj_property>
+      <obj_property name="ObjectShortName">flash_addr_o_r[22:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/flash_data_o_r" type="array">
+      <obj_property name="ElementShortName">flash_data_o_r[15:0]</obj_property>
+      <obj_property name="ObjectShortName">flash_data_o_r[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/block_offset" type="array">
+      <obj_property name="ElementShortName">block_offset[8:0]</obj_property>
+      <obj_property name="ObjectShortName">block_offset[8:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/read_buf_out_addr" type="array">
+      <obj_property name="ElementShortName">read_buf_out_addr[6:0]</obj_property>
+      <obj_property name="ObjectShortName">read_buf_out_addr[6:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/read_buf_out_data" type="array">
+      <obj_property name="ElementShortName">read_buf_out_data[31:0]</obj_property>
+      <obj_property name="ObjectShortName">read_buf_out_data[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/flash_oe_n" type="logic">
+      <obj_property name="ElementShortName">flash_oe_n</obj_property>
+      <obj_property name="ObjectShortName">flash_oe_n</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/flash_we_n" type="logic">
+      <obj_property name="ElementShortName">flash_we_n</obj_property>
+      <obj_property name="ObjectShortName">flash_we_n</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/flash_data_o_c" type="array">
+      <obj_property name="ElementShortName">flash_data_o_c[15:0]</obj_property>
+      <obj_property name="ObjectShortName">flash_data_o_c[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash_a" type="array">
+      <obj_property name="ElementShortName">flash_a[22:0]</obj_property>
+      <obj_property name="ObjectShortName">flash_a[22:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash_d" type="array">
+      <obj_property name="ElementShortName">flash_d[15:0]</obj_property>
+      <obj_property name="ObjectShortName">flash_d[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/A" type="array">
+      <obj_property name="ElementShortName">A[23:0]</obj_property>
+      <obj_property name="ObjectShortName">A[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/DQ" type="array">
+      <obj_property name="ElementShortName">DQ[15:0]</obj_property>
+      <obj_property name="ObjectShortName">DQ[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/read_block_values" type="array">
+      <obj_property name="ElementShortName">read_block_values[127:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">read_block_values[127:0][31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/OE_N" type="logic">
+      <obj_property name="ElementShortName">OE_N</obj_property>
+      <obj_property name="ObjectShortName">OE_N</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/WE_N" type="logic">
+      <obj_property name="ElementShortName">WE_N</obj_property>
+      <obj_property name="ObjectShortName">WE_N</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/Kernel/Ready" type="logic">
+      <obj_property name="ElementShortName">Ready</obj_property>
+      <obj_property name="ObjectShortName">Ready</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/suspend_flag" type="logic">
+      <obj_property name="ElementShortName">suspend_flag</obj_property>
+      <obj_property name="ObjectShortName">suspend_flag</obj_property>
+   </wvobject>
+   <wvobject fp_name="group1519" type="group">
+      <obj_property name="label">WB</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/flash_tb/fc/wb_cyc_i" type="logic">
+         <obj_property name="ElementShortName">wb_cyc_i</obj_property>
+         <obj_property name="ObjectShortName">wb_cyc_i</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_stb_i" type="logic">
+         <obj_property name="ElementShortName">wb_stb_i</obj_property>
+         <obj_property name="ObjectShortName">wb_stb_i</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_ack_o" type="logic">
+         <obj_property name="ElementShortName">wb_ack_o</obj_property>
+         <obj_property name="ObjectShortName">wb_ack_o</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_adr_i" type="array">
+         <obj_property name="ElementShortName">wb_adr_i[31:0]</obj_property>
+         <obj_property name="ObjectShortName">wb_adr_i[31:0]</obj_property>
+         <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_dat_i" type="array">
+         <obj_property name="ElementShortName">wb_dat_i[31:0]</obj_property>
+         <obj_property name="ObjectShortName">wb_dat_i[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_dat_o" type="array">
+         <obj_property name="ElementShortName">wb_dat_o[31:0]</obj_property>
+         <obj_property name="ObjectShortName">wb_dat_o[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_sel_i" type="array">
+         <obj_property name="ElementShortName">wb_sel_i[3:0]</obj_property>
+         <obj_property name="ObjectShortName">wb_sel_i[3:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/flash_tb/fc/wb_we_i" type="logic">
+         <obj_property name="ElementShortName">wb_we_i</obj_property>
+         <obj_property name="ObjectShortName">wb_we_i</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/read_ready" type="logic">
+      <obj_property name="ElementShortName">read_ready</obj_property>
+      <obj_property name="ObjectShortName">read_ready</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/write_ready" type="logic">
+      <obj_property name="ElementShortName">write_ready</obj_property>
+      <obj_property name="ObjectShortName">write_ready</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/ProgramBuffer_man/address" type="array">
+      <obj_property name="ElementShortName">address[23:0]</obj_property>
+      <obj_property name="ObjectShortName">address[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/ProgramBuffer_man/data" type="array">
+      <obj_property name="ElementShortName">data[15:0]</obj_property>
+      <obj_property name="ObjectShortName">data[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/ProgramBuffer_man/bufferData" type="array">
+      <obj_property name="ElementShortName">bufferData[255:0][15:0]</obj_property>
+      <obj_property name="ObjectShortName">bufferData[255:0][15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/flash/ProgramBuffer_man/address" type="array">
+      <obj_property name="ElementShortName">address[23:0]</obj_property>
+      <obj_property name="ObjectShortName">address[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/write_block_values" type="array">
+      <obj_property name="ElementShortName">write_block_values[127:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">write_block_values[127:0][31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/read_buf_in_addr" type="array">
+      <obj_property name="ElementShortName">read_buf_in_addr[6:0]</obj_property>
+      <obj_property name="ObjectShortName">read_buf_in_addr[6:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/read_buf_in_data" type="array">
+      <obj_property name="ElementShortName">read_buf_in_data[31:0]</obj_property>
+      <obj_property name="ObjectShortName">read_buf_in_data[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/read_buf_we" type="array">
+      <obj_property name="ElementShortName">read_buf_we[3:0]</obj_property>
+      <obj_property name="ObjectShortName">read_buf_we[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/flash_tb/fc/write_buf_addr" type="array">
+      <obj_property name="ElementShortName">write_buf_addr[6:0]</obj_property>
+      <obj_property name="ObjectShortName">write_buf_addr[6:0]</obj_property>
+   </wvobject>
+</wave_config>

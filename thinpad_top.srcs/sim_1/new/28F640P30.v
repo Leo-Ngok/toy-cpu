@@ -38,721 +38,721 @@
 
 module TimingLibModule(A, DQ, W_N, G_N, E_N, L_N, WP_N, CK, VPP);  
 
-input [`ADDRBUS_dim-1:0] A;           // Address Bus 
-input [`DATABUS_dim-1:0] DQ;          // Data I/0 Bus
+  input [`ADDRBUS_dim-1:0] A;           // Address Bus 
+  input [`DATABUS_dim-1:0] DQ;          // Data I/0 Bus
 
-input W_N, G_N, E_N, L_N, WP_N, CK;
-input [`Voltage_range] VPP;
+  input W_N, G_N, E_N, L_N, WP_N, CK;
+  input [`Voltage_range] VPP;
 
-integer AddValid_time;
-integer AddNotValid_time;
-integer DataValid_time;
-integer DataXX_time;
+  integer AddValid_time;
+  integer AddNotValid_time;
+  integer DataValid_time;
+  integer DataXX_time;
 
-integer WriteEnableLow_time;
-integer WriteEnableHigh_time;
-integer OutputEnableLow_time;
-integer OutputEnableHigh_time;
-integer LatchEnableHigh_time;
-integer LatchEnableLow_time;
-integer ChipEnableLow_time; 
-integer ChipEnableHigh_time;
-integer RisingEdge_time;
-integer FallingEdge_time;
+  integer WriteEnableLow_time;
+  integer WriteEnableHigh_time;
+  integer OutputEnableLow_time;
+  integer OutputEnableHigh_time;
+  integer LatchEnableHigh_time;
+  integer LatchEnableLow_time;
+  integer ChipEnableLow_time; 
+  integer ChipEnableHigh_time;
+  integer RisingEdge_time;
+  integer FallingEdge_time;
 
-integer WaitValid_time;
+  integer WaitValid_time;
 
-integer WriteProtectHigh_time;
-integer WriteProtectLow_time;
-integer VPPSupplyHigh_time;
-integer VPPSupplyLow_time;
+  integer WriteProtectHigh_time;
+  integer WriteProtectLow_time;
+  integer VPPSupplyHigh_time;
+  integer VPPSupplyLow_time;
 
-reg afterReset;
+  reg afterReset;
 
-reg isValid;
-reg dataValid;
-reg addressValid;
-reg reading;
-reg writing;
-reg dataXX;
-time temp;
+  reg isValid;
+  reg dataValid;
+  reg addressValid;
+  reg reading;
+  reg writing;
+  reg dataXX;
+  time temp;
 
 
-initial begin
+  initial begin
 
-        AddValid_time         = 0;
-        AddNotValid_time      = 0;
-        DataValid_time        = 0;
-        DataXX_time           = 0;
+          AddValid_time         = 0;
+          AddNotValid_time      = 0;
+          DataValid_time        = 0;
+          DataXX_time           = 0;
 
-        WriteEnableLow_time   = 0;
-        WriteEnableHigh_time  = 0;
-        OutputEnableLow_time  = 0;
-        OutputEnableHigh_time = 0;
-        LatchEnableHigh_time  = 0;
-        LatchEnableLow_time   = 0;
-        ChipEnableLow_time    = 0;
-        ChipEnableHigh_time   = 0;
+          WriteEnableLow_time   = 0;
+          WriteEnableHigh_time  = 0;
+          OutputEnableLow_time  = 0;
+          OutputEnableHigh_time = 0;
+          LatchEnableHigh_time  = 0;
+          LatchEnableLow_time   = 0;
+          ChipEnableLow_time    = 0;
+          ChipEnableHigh_time   = 0;
 
-        WaitValid_time        = 0;
+          WaitValid_time        = 0;
 
-        WriteProtectHigh_time = 0;
-        WriteProtectLow_time  = 0;
+          WriteProtectHigh_time = 0;
+          WriteProtectLow_time  = 0;
 
-        RisingEdge_time  = 0;
-        FallingEdge_time = 0;
+          RisingEdge_time  = 0;
+          FallingEdge_time = 0;
 
-        dataValid = `FALSE;
-        dataXX    = `FALSE;
-        addressValid = `FALSE;
+          dataValid = `FALSE;
+          dataXX    = `FALSE;
+          addressValid = `FALSE;
 
-        reading = `FALSE;
-        writing = `FALSE;
+          reading = `FALSE;
+          writing = `FALSE;
 
-        afterReset = `FALSE;
+          afterReset = `FALSE;
 
+    end
+
+
+  // **************
+  //
+  // Change address
+  //
+  // **************
+          
+  always @(A) begin : AddressCheck
+
+          if (`TimingChecks == "off") 
+                          disable AddressCheck;
+
+          if ($time > `Reset_time)
+          begin
+          if (isAddValid(A))               // Address Valid
+                  begin
+                          temp = $time - AddValid_time;
+                          checkTiming("tAVAV", TimingData_man.tAVAV, temp, "min");
+
+                          temp = $time - WriteEnableHigh_time;
+                          checkTiming("tWHAV", TimingData_man.tWHAV, temp, "min");
+
+                          AddValid_time = $time;        
+                          addressValid = `TRUE;
+                  end
+
+                  else
+                  begin
+                          if (isAddXX(A) || isAddZZ(A))             // Address XXXX o ZZZZ
+                                  begin
+                                  
+                                          if (addressValid)
+                                          begin
+                                                  temp = $time - LatchEnableHigh_time;
+                                                  checkTiming("tLHAX", TimingData_man.tLHAX, temp, "min");
+
+                                                  temp = $time - WriteEnableHigh_time;
+                                                  checkTiming("tWHAX", TimingData_man.tWHAX, temp, "min");
+
+                                              
+                                                  AddNotValid_time = $time;        
+                                          end
+                                          addressValid = `FALSE;
+                                  end
+                  end
+        end           
   end
 
 
-// **************
-//
-// Change address
-//
-// **************
-        
-always @(A) begin : AddressCheck
+  // ***********
+  //
+  // Change data
+  //
+  // ***********
 
-        if (`TimingChecks == "off") 
-                        disable AddressCheck;
+  always @(DQ) begin : DataCheck
 
-        if ($time > `Reset_time)
-        begin
-        if (isAddValid(A))               // Address Valid
-                begin
-                        temp = $time - AddValid_time;
-                        checkTiming("tAVAV", TimingData_man.tAVAV, temp, "min");
-
-                        temp = $time - WriteEnableHigh_time;
-                        checkTiming("tWHAV", TimingData_man.tWHAV, temp, "min");
-
-                        AddValid_time = $time;        
-                        addressValid = `TRUE;
-                end
-
-                else
-                begin
-                        if (isAddXX(A) || isAddZZ(A))             // Address XXXX o ZZZZ
-                                begin
-                                
-                                        if (addressValid)
-                                        begin
-                                                temp = $time - LatchEnableHigh_time;
-                                                checkTiming("tLHAX", TimingData_man.tLHAX, temp, "min");
-
-                                                temp = $time - WriteEnableHigh_time;
-                                                checkTiming("tWHAX", TimingData_man.tWHAX, temp, "min");
-
-                                            
-                                                AddNotValid_time = $time;        
-                                        end
-                                        addressValid = `FALSE;
-                                end
-                 end
-      end           
-end
-
-
-// ***********
-//
-// Change data
-//
-// ***********
-
-always @(DQ) begin : DataCheck
-
-   if (`TimingChecks == "off") 
-                        disable DataCheck;
-
-   if ($time > `Reset_time)
-        begin
-
-   if (isDataValid(DQ))               // Data Valid
-        begin
-                if (ConfigReg_man.isSynchronous)               // Synchronous mode 
-
-                        begin
-                           if (reading)
-                                if (ConfigReg_man.isRisingClockEdge)
-                                        begin
-                                                temp = $time - RisingEdge_time;
-                                        end
-                                else
-                                        begin
-                                                temp = $time - FallingEdge_time;
-
-                                        end
-                        end
-
-                else         // Asynchronous mode
-                begin        
-                
-                        temp = $time - AddValid_time;
-
-                        temp = $time - LatchEnableLow_time;
-
-                        temp = $time - ChipEnableLow_time;
-
-                        if (reading)
-                                begin
-                                        temp = $time - OutputEnableLow_time;
-                                        
-                                        temp = $time - WriteEnableHigh_time;
-                                end
-
-                        DataValid_time = $time;   
-                        dataValid = `TRUE;
-                        dataXX = `FALSE;
-                end
-       end         
-                        
-    else
-        begin
-                if (isDataXX(DQ))                 // Data XXXX
-                        begin
-                                if (dataValid) 
-                                        begin
-                                                temp = $time - AddNotValid_time;
-
-                                                temp = $time - ChipEnableHigh_time;
-                                                checkTiming("tEHQX", TimingData_man.tEHQX, temp, "min");
-
-                                                temp = $time - OutputEnableHigh_time;
-
-                                        end
-
-                                 else    
-                                        begin
-                                        
-                                                temp = $time - ChipEnableLow_time;
-                                                checkTiming("tELQX", TimingData_man.tELQX, temp, "min");
-
-                                                if (reading)
-                                                        begin
-                                                                temp = $time - OutputEnableLow_time;
-                                                                checkTiming("tGLQX", TimingData_man.tGLQX, temp, "min");
-                                                        end        
-                                        end
-
-
-                                  DataXX_time = $time;
-                                  dataValid = `FALSE;
-                                  dataXX = `TRUE;
-                                
-                           end
-
-                   else 
-                        if (isDataZZ(DQ))        
-                                begin
-                                        if (dataXX) 
-                                                begin
-                                                        temp = $time - ChipEnableHigh_time;
-                                                        checkTiming("tEHQZ", TimingData_man.tEHQZ, temp, "max");
-                                                        temp = $time - OutputEnableHigh_time;
-                                                        checkTiming("tGHQZ", TimingData_man.tGHQZ, temp, "max");
-                                                end
-
-                                        if (dataValid)
-                                                begin
-                                                        temp = $time - WriteEnableHigh_time;
-                                                        checkTiming("tWHDX", TimingData_man.tWHDX, temp, "min");
-   
-                                                end
-                                        
-                                        dataValid = `FALSE;
-                                        dataXX  = `FALSE;
-                                 end
-           end
-    end       
-end           
-               
-// ******************
-//
-// Change Chip Enable
-//
-// ******************
-
- always @(posedge E_N) begin : ChipHighCheck    // Chip Enable High
-
- if (`TimingChecks == "off") 
-                        disable ChipHighCheck;
-
- if ($time > `Reset_time)
-        begin
-      
-      temp = $time - WriteEnableHigh_time;
-      checkTiming("tWHEH", TimingData_man.tWHEH, temp, "min");
-
-      ChipEnableHigh_time = $time;
-   end
- end
-
-always @(negedge E_N) begin : ChipLowCheck    // Chip Enable Low
-
-if (`TimingChecks == "off") 
-                        disable ChipLowCheck;
-
-  if ($time > `Reset_time)
-        begin
-                                
-      ChipEnableLow_time = $time;
-  end    
-
-end
-
-always @(posedge L_N) begin : LatchLowCheck    // Latch Enable High
-
-if (`TimingChecks == "off") 
-                        disable LatchLowCheck;
-
-   if ($time > `Reset_time)
-        begin
-                                
-       temp = $time - AddValid_time;
-       checkTiming("tAVLH", TimingData_man.tAVLH, temp, "min");
-                              
-       temp = $time - LatchEnableLow_time;
-       checkTiming("tLLLH", TimingData_man.tLLLH, temp, "min");
-                                
-       temp = $time - ChipEnableLow_time;
-       checkTiming("tELLH", TimingData_man.tELLH, temp, "min");
-
-       LatchEnableHigh_time = $time;
-  end
-end
-
-always @(negedge L_N)  begin : LatchHighCheck  // Latch Enable Low
-
-if (`TimingChecks == "off") 
-                        disable LatchHighCheck;
-
-if ($time > `Reset_time)
-        begin
-                                
-       temp = $time - WriteEnableHigh_time;
-       checkTiming("tWHLL", TimingData_man.tWHLL, temp, "min");
-
-       temp = $time - RisingEdge_time;
-
-
-
-
-       LatchEnableLow_time = $time;
-  end
-
-end
-
-always  @(posedge G_N) begin : OutputHighCheck    // Output Enable High
-
-if (`TimingChecks == "off") 
-                        disable OutputHighCheck;
-
-  if ($time > `Reset_time)
-        begin
-                                
-      OutputEnableHigh_time = $time;
-      reading = `FALSE;
-  end
-
-end
-
-always @(negedge G_N) begin : OutputLowCheck    // Output Enable Low
-
-if (`TimingChecks == "off") 
-                        disable OutputLowCheck;
+    if (`TimingChecks == "off") 
+                          disable DataCheck;
 
     if ($time > `Reset_time)
-        begin
-
-                                
-       temp = $time - LatchEnableHigh_time;
-
-       temp = $time - WriteEnableHigh_time;
-       checkTiming("tWHGL", TimingData_man.tWHGL, temp, "min");
-
-
-       OutputEnableLow_time = $time;
-       reading = `TRUE;
-   end    
-
-end
-                        
-always @(posedge W_N) begin : WriteHighCheck    // Write Enable High
-
-if (`TimingChecks == "off") 
-                        disable WriteHighCheck;
-
-   if ($time > `Reset_time)
-        begin
-
-                                
-       temp = $time - AddValid_time;
-       checkTiming("tAVWH", TimingData_man.tAVWH, temp, "min");
-
-       if (writing)
           begin
-                temp = $time - WriteEnableLow_time;
-                checkTiming("tWLWH", TimingData_man.tWLWH, temp, "min");
-          end        
-                                
-       temp = $time - DataValid_time;
-       checkTiming("tDVWH", TimingData_man.tDVWH, temp, "min");
 
-       temp = $time - WriteProtectHigh_time;
-       checkTiming("tWPHWH", TimingData_man.tWPHWH, temp, "min");
-
-       temp = $time - VPPSupplyHigh_time;
-       checkTiming("tVPHWH", TimingData_man.tVPHWH, temp, "min");
-
-       WriteEnableHigh_time = $time;
-       writing = `FALSE;
-   end
-end
-                
-always @(negedge W_N) begin : WriteLowCheck    // Write Enable Low
-
-if (`TimingChecks == "off") 
-                        disable WriteLowCheck;
-
-  if ($time > `Reset_time)
-        begin
-                                
-       temp = $time - ChipEnableLow_time;
-       checkTiming("tELWL", TimingData_man.tELWL, temp, "min");
-
-       temp = $time - WriteEnableHigh_time;
-       checkTiming("tWHWL", TimingData_man.tWHWL, temp, "min");
-
-       WriteEnableLow_time = $time;
-       writing = `TRUE; 
-   end
-end
-
-always  @(posedge WP_N) begin : WPHighCheck            // Write Protect High
-
-if (`TimingChecks == "off") 
-                        disable WPHighCheck;
-
-if ($time > `Reset_time)
-        begin
-                               
-    WriteProtectHigh_time = $time; 
- end   
-end
-
-always  @(negedge WP_N) begin : WPLowCheck               // Write Protect Low
-
-if (`TimingChecks == "off") 
-                        disable WPLowCheck;
-
-  if ($time > `Reset_time)
-        begin
-                                
-    temp = $time - DataValid_time;
-    checkTiming("tQVWPL", TimingData_man.tQVWPL, temp, "min");
-
-    WriteProtectLow_time = $time;
- end   
-end
-
-always @(posedge VPP) begin : VPPHighCheck            // Write Protect High
-
-if (`TimingChecks == "off") 
-                        disable VPPHighCheck;
-
-  if ($time > `Reset_time)
-        begin
-                               
-       VPPSupplyHigh_time = $time; 
-  end     
-end
-
-always @(negedge VPP) begin : VPPLowCheck               // Write Protect Low
-
-if (`TimingChecks == "off") 
-                        disable VPPLowCheck;
-
-if ($time > `Reset_time)
-        begin
-                                
-      temp = $time - DataValid_time;
-      checkTiming("tQVVPL", TimingData_man.tQVVPL, temp, "min");
-
-      VPPSupplyLow_time = $time;
-
-   end   
-end
-
-always @(posedge CK) begin : RisingCKCheck                // Write Protect Low
-
-if (`TimingChecks == "off") 
-                        disable RisingCKCheck;
-
-if ($time > `Reset_time)
-   begin
-       
-       temp = $time - LatchEnableLow_time;
-
-
-        RisingEdge_time = $time;
-   end   
-end
-
-always @(negedge CK) begin : FallingCKCheck                // Write Protect Low
-
-if (`TimingChecks == "off") 
-                        disable FallingCKCheck;
-
-if ($time > `Reset_time)
-   begin
-        
-         temp = $time - LatchEnableLow_time;
-
-                 
-
-        FallingEdge_time = $time;
-      
-   end   
-end
-
-
-
-// **********************************************
-//
-// FUNCTION isAddValid :
-//      return true if the input address is valid
-//
-// **********************************************
-
-function isAddValid;
-
-input [`ADDRBUS_dim - 1 : 0] Add;
-
-reg [`ADDRBUS_dim - 1 : 0] Add;
-
-reg valid;
-integer count;
-
-begin
-
-        valid = `TRUE;
-        begin : cycle
-                for (count = 0; count <= `ADDRBUS_dim - 1; count = count + 1)
-                        begin
-                                if ((Add[count] !== 1'b0) && (Add[count] !== 1'b1))
-                                        begin
-                                                valid = `FALSE;
-                                                disable cycle;
-                                        end
-                        end
-        end                
-        
-        isAddValid = valid;
-end
-endfunction
-
-
-// *********************************************
-//
-// FUNCTION isAddXX :
-//      return true if the input address is XXXX
-//
-// *********************************************
-
-function isAddXX;
-
-input [`ADDRBUS_dim - 1 : 0] Add;
-
-reg [`ADDRBUS_dim - 1 : 0] Add;
-
-reg allxx;
-integer count;
-
-begin
-
-        allxx = `TRUE;
-        begin : cycle
-                for (count = 0; count <= `ADDRBUS_dim - 1; count = count + 1)
-                        begin
-                                if (Add[count] !== 1'bx)
-                                        begin
-                                                allxx = `FALSE;
-                                                disable cycle;
-                                        end
-                        end
-        end                
-        
-        isAddXX = allxx;
-end
-endfunction
-
-// *********************************************
-//
-// FUNCTION isAddZZ :
-//      return true if the input address is ZZZZ
-//
-// *********************************************
-
-function isAddZZ;
-
-input [`ADDRBUS_dim - 1 : 0] Add;
-
-reg [`ADDRBUS_dim - 1 : 0] Add;
-
-reg allzz;
-integer count;
-
-begin
-
-        allzz = `TRUE;
-        begin : cycle
-                for (count = 0; count <= `ADDRBUS_dim - 1; count = count + 1)
-                        begin
-                                if (Add[count] !== 1'bz)
-                                        begin
-                                                allzz = `FALSE;
-                                                disable cycle;
-                                        end
-                        end
-        end                
-        
-        isAddZZ = allzz;
-end
-endfunction
-
-// **********************************************
-//
-// FUNCTION isDataValid :
-//      return true if the data is valid
-//
-// **********************************************
-
-function isDataValid;
-
-input [`DATABUS_dim - 1 : 0] Data;
-
-reg [`DATABUS_dim - 1 : 0] Data;
-
-reg valid;
-integer count;
-
-begin
-
-        valid = `TRUE;
-        begin : cycle
-                for (count = 0; count <= `DATABUS_dim - 1; count = count + 1)
-                        begin
-                                if ((Data[count] !== 1'b0) && (Data[count] !== 1'b1))
-                                        begin
-                                                valid = `FALSE;
-                                                disable cycle;
-                                        end
-                        end
-        end                
-        
-        isDataValid = valid;
-end
-endfunction
-
-// ***************************************
-//
-// FUNCTION isDataXX :
-//      return true if the data is unknown
-//
-// ***************************************
-
-function isDataXX;
-
-input [`DATABUS_dim - 1 : 0] Data;
-
-reg [`DATABUS_dim - 1 : 0] Data;
-
-reg allxx;
-integer count;
-
-begin
-
-        allxx = `TRUE;
-        begin : cycle
-                for (count = 0; count <= `DATABUS_dim - 1; count = count + 1)
-                        begin
-                                if (Data[count] !== 1'bx) 
-                                        begin
-                                                allxx = `FALSE;
-                                                disable cycle;
-                                        end
-                        end
-        end                
-        
-        isDataXX = allxx;
-end
-endfunction
-
-// ************************************
-//
-// FUNCTION isDataZZ :
-//      return true if the data is Hi-Z
-//
-// ************************************
-
-function isDataZZ;
-
-input [`DATABUS_dim - 1 : 0] Data;
-
-reg [`DATABUS_dim - 1 : 0] Data;
-
-reg allzz;
-integer count;
-
-begin
-
-        allzz = `TRUE;
-        begin : cycle
-                for (count = 0; count <= `DATABUS_dim - 1; count = count + 1)
-                        begin
-                                if (Data[count] !== 1'bz) 
-                                        begin
-                                                allzz = `FALSE;
-                                                disable cycle;
-                                        end
-                        end
-        end                
-        
-        isDataZZ = allzz;
-end
-endfunction
-
-// *****************************
-//
-// Task Check Timing
-//      check timing constraints
-//
-// *****************************
-
-task checkTiming;
-  input [8*6:1] tstr;
-  input [31:0]  tOK, tcheck;
-  input [8*3:1] check_str;
-  
-  begin
-        if ((check_str == "min") && (tcheck < tOK)) begin
-                $display ("[%t]  !ERROR: %0s timing constraint violation!! ", $time, tstr);
+    if (isDataValid(DQ))               // Data Valid
+          begin
+                  if (ConfigReg_man.isSynchronous)               // Synchronous mode 
+
+                          begin
+                            if (reading)
+                                  if (ConfigReg_man.isRisingClockEdge)
+                                          begin
+                                                  temp = $time - RisingEdge_time;
+                                          end
+                                  else
+                                          begin
+                                                  temp = $time - FallingEdge_time;
+
+                                          end
+                          end
+
+                  else         // Asynchronous mode
+                  begin        
+                  
+                          temp = $time - AddValid_time;
+
+                          temp = $time - LatchEnableLow_time;
+
+                          temp = $time - ChipEnableLow_time;
+
+                          if (reading)
+                                  begin
+                                          temp = $time - OutputEnableLow_time;
+                                          
+                                          temp = $time - WriteEnableHigh_time;
+                                  end
+
+                          DataValid_time = $time;   
+                          dataValid = `TRUE;
+                          dataXX = `FALSE;
+                  end
         end         
+                          
+      else
+          begin
+                  if (isDataXX(DQ))                 // Data XXXX
+                          begin
+                                  if (dataValid) 
+                                          begin
+                                                  temp = $time - AddNotValid_time;
 
-        else 
-                if ((check_str == "max") && (tcheck > tOK))
-                        $display ("[%t]  !ERROR: %0s timing constraint violation!! ", $time, tstr);
+                                                  temp = $time - ChipEnableHigh_time;
+                                                  checkTiming("tEHQX", TimingData_man.tEHQX, temp, "min");
+
+                                                  temp = $time - OutputEnableHigh_time;
+
+                                          end
+
+                                  else    
+                                          begin
+                                          
+                                                  temp = $time - ChipEnableLow_time;
+                                                  checkTiming("tELQX", TimingData_man.tELQX, temp, "min");
+
+                                                  if (reading)
+                                                          begin
+                                                                  temp = $time - OutputEnableLow_time;
+                                                                  checkTiming("tGLQX", TimingData_man.tGLQX, temp, "min");
+                                                          end        
+                                          end
+
+
+                                    DataXX_time = $time;
+                                    dataValid = `FALSE;
+                                    dataXX = `TRUE;
+                                  
+                            end
+
+                    else 
+                          if (isDataZZ(DQ))        
+                                  begin
+                                          if (dataXX) 
+                                                  begin
+                                                          temp = $time - ChipEnableHigh_time;
+                                                          checkTiming("tEHQZ", TimingData_man.tEHQZ, temp, "max");
+                                                          temp = $time - OutputEnableHigh_time;
+                                                          checkTiming("tGHQZ", TimingData_man.tGHQZ, temp, "max");
+                                                  end
+
+                                          if (dataValid)
+                                                  begin
+                                                          temp = $time - WriteEnableHigh_time;
+                                                          checkTiming("tWHDX", TimingData_man.tWHDX, temp, "min");
+    
+                                                  end
+                                          
+                                          dataValid = `FALSE;
+                                          dataXX  = `FALSE;
+                                  end
+            end
+      end       
+  end           
+                
+  // ******************
+  //
+  // Change Chip Enable
+  //
+  // ******************
+
+  always @(posedge E_N) begin : ChipHighCheck    // Chip Enable High
+
+  if (`TimingChecks == "off") 
+                          disable ChipHighCheck;
+
+  if ($time > `Reset_time)
+          begin
+        
+        temp = $time - WriteEnableHigh_time;
+        checkTiming("tWHEH", TimingData_man.tWHEH, temp, "min");
+
+        ChipEnableHigh_time = $time;
+    end
   end
-  endtask
+
+  always @(negedge E_N) begin : ChipLowCheck    // Chip Enable Low
+
+  if (`TimingChecks == "off") 
+                          disable ChipLowCheck;
+
+    if ($time > `Reset_time)
+          begin
+                                  
+        ChipEnableLow_time = $time;
+    end    
+
+  end
+
+  always @(posedge L_N) begin : LatchLowCheck    // Latch Enable High
+
+  if (`TimingChecks == "off") 
+                          disable LatchLowCheck;
+
+    if ($time > `Reset_time)
+          begin
+                                  
+        temp = $time - AddValid_time;
+        checkTiming("tAVLH", TimingData_man.tAVLH, temp, "min");
+                                
+        temp = $time - LatchEnableLow_time;
+        checkTiming("tLLLH", TimingData_man.tLLLH, temp, "min");
+                                  
+        temp = $time - ChipEnableLow_time;
+        checkTiming("tELLH", TimingData_man.tELLH, temp, "min");
+
+        LatchEnableHigh_time = $time;
+    end
+  end
+
+  always @(negedge L_N)  begin : LatchHighCheck  // Latch Enable Low
+
+  if (`TimingChecks == "off") 
+                          disable LatchHighCheck;
+
+  if ($time > `Reset_time)
+          begin
+                                  
+        temp = $time - WriteEnableHigh_time;
+        checkTiming("tWHLL", TimingData_man.tWHLL, temp, "min");
+
+        temp = $time - RisingEdge_time;
+
+
+
+
+        LatchEnableLow_time = $time;
+    end
+
+  end
+
+  always  @(posedge G_N) begin : OutputHighCheck    // Output Enable High
+
+  if (`TimingChecks == "off") 
+                          disable OutputHighCheck;
+
+    if ($time > `Reset_time)
+          begin
+                                  
+        OutputEnableHigh_time = $time;
+        reading = `FALSE;
+    end
+
+  end
+
+  always @(negedge G_N) begin : OutputLowCheck    // Output Enable Low
+
+  if (`TimingChecks == "off") 
+                          disable OutputLowCheck;
+
+      if ($time > `Reset_time)
+          begin
+
+                                  
+        temp = $time - LatchEnableHigh_time;
+
+        temp = $time - WriteEnableHigh_time;
+        checkTiming("tWHGL", TimingData_man.tWHGL, temp, "min");
+
+
+        OutputEnableLow_time = $time;
+        reading = `TRUE;
+    end    
+
+  end
+                          
+  always @(posedge W_N) begin : WriteHighCheck    // Write Enable High
+
+  if (`TimingChecks == "off") 
+                          disable WriteHighCheck;
+
+    if ($time > `Reset_time)
+          begin
+
+                                  
+        temp = $time - AddValid_time;
+        checkTiming("tAVWH", TimingData_man.tAVWH, temp, "min");
+
+        if (writing)
+            begin
+                  temp = $time - WriteEnableLow_time;
+                  checkTiming("tWLWH", TimingData_man.tWLWH, temp, "min");
+            end        
+                                  
+        temp = $time - DataValid_time;
+        checkTiming("tDVWH", TimingData_man.tDVWH, temp, "min");
+
+        temp = $time - WriteProtectHigh_time;
+        checkTiming("tWPHWH", TimingData_man.tWPHWH, temp, "min");
+
+        temp = $time - VPPSupplyHigh_time;
+        checkTiming("tVPHWH", TimingData_man.tVPHWH, temp, "min");
+
+        WriteEnableHigh_time = $time;
+        writing = `FALSE;
+    end
+  end
+                  
+  always @(negedge W_N) begin : WriteLowCheck    // Write Enable Low
+
+  if (`TimingChecks == "off") 
+                          disable WriteLowCheck;
+
+    if ($time > `Reset_time)
+          begin
+                                  
+        temp = $time - ChipEnableLow_time;
+        checkTiming("tELWL", TimingData_man.tELWL, temp, "min");
+
+        temp = $time - WriteEnableHigh_time;
+        checkTiming("tWHWL", TimingData_man.tWHWL, temp, "min");
+
+        WriteEnableLow_time = $time;
+        writing = `TRUE; 
+    end
+  end
+
+  always  @(posedge WP_N) begin : WPHighCheck            // Write Protect High
+
+  if (`TimingChecks == "off") 
+                          disable WPHighCheck;
+
+  if ($time > `Reset_time)
+          begin
+                                
+      WriteProtectHigh_time = $time; 
+  end   
+  end
+
+  always  @(negedge WP_N) begin : WPLowCheck               // Write Protect Low
+
+  if (`TimingChecks == "off") 
+                          disable WPLowCheck;
+
+    if ($time > `Reset_time)
+          begin
+                                  
+      temp = $time - DataValid_time;
+      checkTiming("tQVWPL", TimingData_man.tQVWPL, temp, "min");
+
+      WriteProtectLow_time = $time;
+  end   
+  end
+
+  always @(posedge VPP) begin : VPPHighCheck            // Write Protect High
+
+  if (`TimingChecks == "off") 
+                          disable VPPHighCheck;
+
+    if ($time > `Reset_time)
+          begin
+                                
+        VPPSupplyHigh_time = $time; 
+    end     
+  end
+
+  always @(negedge VPP) begin : VPPLowCheck               // Write Protect Low
+
+  if (`TimingChecks == "off") 
+                          disable VPPLowCheck;
+
+  if ($time > `Reset_time)
+          begin
+                                  
+        temp = $time - DataValid_time;
+        checkTiming("tQVVPL", TimingData_man.tQVVPL, temp, "min");
+
+        VPPSupplyLow_time = $time;
+
+    end   
+  end
+
+  always @(posedge CK) begin : RisingCKCheck                // Write Protect Low
+
+  if (`TimingChecks == "off") 
+                          disable RisingCKCheck;
+
+  if ($time > `Reset_time)
+    begin
+        
+        temp = $time - LatchEnableLow_time;
+
+
+          RisingEdge_time = $time;
+    end   
+  end
+
+  always @(negedge CK) begin : FallingCKCheck                // Write Protect Low
+
+  if (`TimingChecks == "off") 
+                          disable FallingCKCheck;
+
+  if ($time > `Reset_time)
+    begin
+          
+          temp = $time - LatchEnableLow_time;
+
+                  
+
+          FallingEdge_time = $time;
+        
+    end   
+  end
+
+
+
+  // **********************************************
+  //
+  // FUNCTION isAddValid :
+  //      return true if the input address is valid
+  //
+  // **********************************************
+
+  function isAddValid;
+
+  input [`ADDRBUS_dim - 1 : 0] Add;
+
+  reg [`ADDRBUS_dim - 1 : 0] Add;
+
+  reg valid;
+  integer count;
+
+  begin
+
+          valid = `TRUE;
+          begin : cycle
+                  for (count = 0; count <= `ADDRBUS_dim - 1; count = count + 1)
+                          begin
+                                  if ((Add[count] !== 1'b0) && (Add[count] !== 1'b1))
+                                          begin
+                                                  valid = `FALSE;
+                                                  disable cycle;
+                                          end
+                          end
+          end                
+          
+          isAddValid = valid;
+  end
+  endfunction
+
+
+  // *********************************************
+  //
+  // FUNCTION isAddXX :
+  //      return true if the input address is XXXX
+  //
+  // *********************************************
+
+  function isAddXX;
+
+  input [`ADDRBUS_dim - 1 : 0] Add;
+
+  reg [`ADDRBUS_dim - 1 : 0] Add;
+
+  reg allxx;
+  integer count;
+
+  begin
+
+          allxx = `TRUE;
+          begin : cycle
+                  for (count = 0; count <= `ADDRBUS_dim - 1; count = count + 1)
+                          begin
+                                  if (Add[count] !== 1'bx)
+                                          begin
+                                                  allxx = `FALSE;
+                                                  disable cycle;
+                                          end
+                          end
+          end                
+          
+          isAddXX = allxx;
+  end
+  endfunction
+
+  // *********************************************
+  //
+  // FUNCTION isAddZZ :
+  //      return true if the input address is ZZZZ
+  //
+  // *********************************************
+
+  function isAddZZ;
+
+  input [`ADDRBUS_dim - 1 : 0] Add;
+
+  reg [`ADDRBUS_dim - 1 : 0] Add;
+
+  reg allzz;
+  integer count;
+
+  begin
+
+          allzz = `TRUE;
+          begin : cycle
+                  for (count = 0; count <= `ADDRBUS_dim - 1; count = count + 1)
+                          begin
+                                  if (Add[count] !== 1'bz)
+                                          begin
+                                                  allzz = `FALSE;
+                                                  disable cycle;
+                                          end
+                          end
+          end                
+          
+          isAddZZ = allzz;
+  end
+  endfunction
+
+  // **********************************************
+  //
+  // FUNCTION isDataValid :
+  //      return true if the data is valid
+  //
+  // **********************************************
+
+  function isDataValid;
+
+  input [`DATABUS_dim - 1 : 0] Data;
+
+  reg [`DATABUS_dim - 1 : 0] Data;
+
+  reg valid;
+  integer count;
+
+  begin
+
+          valid = `TRUE;
+          begin : cycle
+                  for (count = 0; count <= `DATABUS_dim - 1; count = count + 1)
+                          begin
+                                  if ((Data[count] !== 1'b0) && (Data[count] !== 1'b1))
+                                          begin
+                                                  valid = `FALSE;
+                                                  disable cycle;
+                                          end
+                          end
+          end                
+          
+          isDataValid = valid;
+  end
+  endfunction
+
+  // ***************************************
+  //
+  // FUNCTION isDataXX :
+  //      return true if the data is unknown
+  //
+  // ***************************************
+
+  function isDataXX;
+
+  input [`DATABUS_dim - 1 : 0] Data;
+
+  reg [`DATABUS_dim - 1 : 0] Data;
+
+  reg allxx;
+  integer count;
+
+  begin
+
+          allxx = `TRUE;
+          begin : cycle
+                  for (count = 0; count <= `DATABUS_dim - 1; count = count + 1)
+                          begin
+                                  if (Data[count] !== 1'bx) 
+                                          begin
+                                                  allxx = `FALSE;
+                                                  disable cycle;
+                                          end
+                          end
+          end                
+          
+          isDataXX = allxx;
+  end
+  endfunction
+
+  // ************************************
+  //
+  // FUNCTION isDataZZ :
+  //      return true if the data is Hi-Z
+  //
+  // ************************************
+
+  function isDataZZ;
+
+  input [`DATABUS_dim - 1 : 0] Data;
+
+  reg [`DATABUS_dim - 1 : 0] Data;
+
+  reg allzz;
+  integer count;
+
+  begin
+
+          allzz = `TRUE;
+          begin : cycle
+                  for (count = 0; count <= `DATABUS_dim - 1; count = count + 1)
+                          begin
+                                  if (Data[count] !== 1'bz) 
+                                          begin
+                                                  allzz = `FALSE;
+                                                  disable cycle;
+                                          end
+                          end
+          end                
+          
+          isDataZZ = allzz;
+  end
+  endfunction
+
+  // *****************************
+  //
+  // Task Check Timing
+  //      check timing constraints
+  //
+  // *****************************
+
+  task checkTiming;
+    input [8*6:1] tstr;
+    input [31:0]  tOK, tcheck;
+    input [8*3:1] check_str;
+    
+    begin
+          if ((check_str == "min") && (tcheck < tOK)) begin
+                  $display ("[%t]  !ERROR: %0s timing constraint violation!! ", $time, tstr);
+          end         
+
+          else 
+                  if ((check_str == "max") && (tcheck > tOK))
+                          $display ("[%t]  !ERROR: %0s timing constraint violation!! ", $time, tstr);
+    end
+    endtask
 
 
 endmodule
@@ -1067,116 +1067,116 @@ endmodule
 // ******************************************
 
 module ConfigRegModule(address,Info);  
-input [`ADDRBUS_range] address;
-input Info;
+  input [`ADDRBUS_range] address;
+  input Info;
 
-reg [`ConfigurationReg_dim - 1 : 0] CR_reg;
-reg [`BYTE_range] Status;
+  reg [`ConfigurationReg_dim - 1 : 0] CR_reg;
+  reg [`BYTE_range] Status;
 
-// **********************
-//
-// Setting default values
-//
-// **********************
- 
-`define ReadMode_bit         15
-`define ClockLatency_MSBbit  13 //cambiato
-`define ClockLatency_LSBbit  11
-`define WaitPolarity_bit     10
-`define DataOutConfig_bit    9 //aggiunta
-
-`define WaitConfig_bit       8
-`define BurstType_bit        7
-`define ValidClockEdge_bit   6
-`define WrapBurst_bit        3
-`define BurstLength_MSBbit   2
-`define BurstLength_LSBbit   0
-
-// Interpreter  Config Reg\\
-
-wire isASynchronous      = CR_reg[`ReadMode_bit] ? `TRUE : `FALSE;
-wire isSynchronous       = CR_reg[`ReadMode_bit] ? `FALSE : `TRUE;
-wire [2:0] Xlatency      = (CR_reg[`ClockLatency_MSBbit : `ClockLatency_LSBbit]<2 &&
-                            CR_reg[`ClockLatency_MSBbit : `ClockLatency_LSBbit]>7) ? 0 : 
-                            CR_reg[`ClockLatency_MSBbit : `ClockLatency_LSBbit];
-wire isWaitPolActiveHigh = CR_reg[`WaitPolarity_bit] ? `TRUE : `FALSE;
-wire isDataHeldTwo       = CR_reg[`DataOutConfig_bit] ? `TRUE : `FALSE; //aggiunta
-wire isWaitBeforeActive    = CR_reg[`WaitConfig_bit] ? `TRUE : `FALSE;
-wire isRisingClockEdge   = CR_reg[`ValidClockEdge_bit] ? `TRUE : `FALSE;
-wire isWrapBurst         = CR_reg[`WrapBurst_bit] ? `FALSE : `TRUE;
-wire isNoWrapBurst       = CR_reg[`WrapBurst_bit] ? `TRUE : `FALSE;
-
-wire [4:0] BurstLength   = CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 1 ? 4 : 
-                           CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 2 ? 8 : 
-                           CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 3 ? 16:
-                           0; // continous Burst
-
-
-wire [2:0] BurstLength_bit = CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 1 ? 2 : 
-                           CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 2 ? 3 : 
-                           CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 3 ? 4:
-                           0; // continous Burst
-
-initial begin    
-        Status = `NoError_msg;
-        CR_reg = `ConfigReg_default; 
-end 
-
-always @(isSynchronous) begin
-if (Info)
-   if (isSynchronous) 
-        $write("[%t]  Synchronous Read Mode\n",$time);
-   else 
-        $write("[%t]  ASynchronous Read Mode\n",$time);
-end 
-// **********************
-//
-// ReSet to default value
-//
-// **********************
-always @(Kernel.ResetEvent) begin 
-        Status = `NoError_msg;
-        CR_reg = `ConfigReg_default;
-end
-
-// **************************************
-//
-// FUNCTION getConfigReg :
-//
-//      return the Configuration Register
-//
-// **************************************
-
-function [`ConfigurationReg_dim - 1 : 0] getConfigReg;
-input required;
-  begin
-                getConfigReg = CR_reg;
-  end
-endfunction
-
-// *************************************
-//
-// FUNCTION putConfigReg :
-//
-//      write the Configuration Register
-//
-// *************************************
-
-task putConfigReg;
-output [`BYTE_range] outStatus;
+  // **********************
+  //
+  // Setting default values
+  //
+  // **********************
   
-reg [`BYTE_range] outStatus;
+  `define ReadMode_bit         15
+  `define ClockLatency_MSBbit  13 //cambiato
+  `define ClockLatency_LSBbit  11
+  `define WaitPolarity_bit     10
+  `define DataOutConfig_bit    9 //aggiunta
 
-integer count;
+  `define WaitConfig_bit       8
+  `define BurstType_bit        7
+  `define ValidClockEdge_bit   6
+  `define WrapBurst_bit        3
+  `define BurstLength_MSBbit   2
+  `define BurstLength_LSBbit   0
 
-begin
-        
-        CR_reg = address[`ConfigurationReg_dim - 1 : 0];
+  // Interpreter  Config Reg\\
 
-        outStatus = Status;        
+  wire isASynchronous      = CR_reg[`ReadMode_bit] ? `TRUE : `FALSE;
+  wire isSynchronous       = CR_reg[`ReadMode_bit] ? `FALSE : `TRUE;
+  wire [2:0] Xlatency      = (CR_reg[`ClockLatency_MSBbit : `ClockLatency_LSBbit]<2 &&
+                              CR_reg[`ClockLatency_MSBbit : `ClockLatency_LSBbit]>7) ? 0 : 
+                              CR_reg[`ClockLatency_MSBbit : `ClockLatency_LSBbit];
+  wire isWaitPolActiveHigh = CR_reg[`WaitPolarity_bit] ? `TRUE : `FALSE;
+  wire isDataHeldTwo       = CR_reg[`DataOutConfig_bit] ? `TRUE : `FALSE; //aggiunta
+  wire isWaitBeforeActive    = CR_reg[`WaitConfig_bit] ? `TRUE : `FALSE;
+  wire isRisingClockEdge   = CR_reg[`ValidClockEdge_bit] ? `TRUE : `FALSE;
+  wire isWrapBurst         = CR_reg[`WrapBurst_bit] ? `FALSE : `TRUE;
+  wire isNoWrapBurst       = CR_reg[`WrapBurst_bit] ? `TRUE : `FALSE;
 
-end
-endtask
+  wire [4:0] BurstLength   = CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 1 ? 4 : 
+                            CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 2 ? 8 : 
+                            CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 3 ? 16:
+                            0; // continous Burst
+
+
+  wire [2:0] BurstLength_bit = CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 1 ? 2 : 
+                            CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 2 ? 3 : 
+                            CR_reg[`BurstLength_MSBbit : `BurstLength_LSBbit] == 3 ? 4:
+                            0; // continous Burst
+
+  initial begin    
+          Status = `NoError_msg;
+          CR_reg = `ConfigReg_default; 
+  end 
+
+  always @(isSynchronous) begin
+  if (Info)
+    if (isSynchronous) 
+          $write("[%t]  Synchronous Read Mode\n",$time);
+    else 
+          $write("[%t]  ASynchronous Read Mode\n",$time);
+  end 
+  // **********************
+  //
+  // ReSet to default value
+  //
+  // **********************
+  always @(Kernel.ResetEvent) begin 
+          Status = `NoError_msg;
+          CR_reg = `ConfigReg_default;
+  end
+
+  // **************************************
+  //
+  // FUNCTION getConfigReg :
+  //
+  //      return the Configuration Register
+  //
+  // **************************************
+
+  function [`ConfigurationReg_dim - 1 : 0] getConfigReg;
+  input required;
+    begin
+                  getConfigReg = CR_reg;
+    end
+  endfunction
+
+  // *************************************
+  //
+  // FUNCTION putConfigReg :
+  //
+  //      write the Configuration Register
+  //
+  // *************************************
+
+  task putConfigReg;
+  output [`BYTE_range] outStatus;
+    
+  reg [`BYTE_range] outStatus;
+
+  integer count;
+
+  begin
+          
+          CR_reg = address[`ConfigurationReg_dim - 1 : 0];
+
+          outStatus = Status;        
+
+  end
+  endtask
 
 
 endmodule
@@ -1189,53 +1189,53 @@ endmodule
 
 module SignatureModule;  
 
-reg error;
-integer i;
-integer n_block;
-  
-initial begin
-        end 
+  reg error;
+  integer i;
+  integer n_block;
+    
+  initial begin
+          end 
 
-always @(posedge error)  begin
-        Kernel.SetWarning(`RSIG_cmd,16'h00,`SignAddrRange_msg);
-        error = `FALSE;
-end
-  
-function [`WORD_range] Get;
+  always @(posedge error)  begin
+          Kernel.SetWarning(`RSIG_cmd,16'h00,`SignAddrRange_msg);
+          error = `FALSE;
+  end
+    
+  function [`WORD_range] Get;
 
-input [`ADDRBUS_range] address;
-  
-    begin
-      if (address[`SignAddress_range] == 9'h00) 
-                begin
-                        Get[`LOW_range] = `ManufacturerCode; 
-                        Get[`HIGH_range] = 8'h00;
-                end
-      else if (address[`SignAddress_range] == 9'h01)
-                begin 
-                        if (`organization == "top") Get[`LOW_range] = `TopDeviceCode;  
-                        else  Get[`LOW_range] = `BottomDeviceCode;  
+  input [`ADDRBUS_range] address;
+    
+      begin
+        if (address[`SignAddress_range] == 9'h00) 
+                  begin
+                          Get[`LOW_range] = `ManufacturerCode; 
+                          Get[`HIGH_range] = 8'h00;
+                  end
+        else if (address[`SignAddress_range] == 9'h01)
+                  begin 
+                          if (`organization == "top") Get[`LOW_range] = `TopDeviceCode;  
+                          else  Get[`LOW_range] = `BottomDeviceCode;  
 
-                        Get[`HIGH_range] = 8'h88;
-                end
-      else if (address[`SignAddress_range] == 9'h02)
-                begin 
-                        Get[`LOW_range] = { 6'b0, BlockLock_man.getLockDownBit(address), BlockLock_man.getLockBit(address) };
-                        Get[`HIGH_range] =  8'h00; 
-                end
-      else if (address[`SignAddress_range] == 9'h05)                       // Configuration Register
-                        Get = ConfigReg_man.getConfigReg(0);       
-      else if ((address[`SignAddress_range] >= `REGSTART_addr) && (address[`SignAddress_range] <= `REGEND_addr)) 
-                begin 
-                         Get = ProtectReg_man.RegisterMemory[address[`SignAddress_range] - `REGSTART_addr ];
+                          Get[`HIGH_range] = 8'h88;
+                  end
+        else if (address[`SignAddress_range] == 9'h02)
+                  begin 
+                          Get[`LOW_range] = { 6'b0, BlockLock_man.getLockDownBit(address), BlockLock_man.getLockBit(address) };
+                          Get[`HIGH_range] =  8'h00; 
+                  end
+        else if (address[`SignAddress_range] == 9'h05)                       // Configuration Register
+                          Get = ConfigReg_man.getConfigReg(0);       
+        else if ((address[`SignAddress_range] >= `REGSTART_addr) && (address[`SignAddress_range] <= `REGEND_addr)) 
+                  begin 
+                          Get = ProtectReg_man.RegisterMemory[address[`SignAddress_range] - `REGSTART_addr ];
 
-                end
-      else begin
-                Get = 8'hXX;
-                error = `TRUE;
-           end
-    end
-endfunction
+                  end
+        else begin
+                  Get = 8'hXX;
+                  error = `TRUE;
+            end
+      end
+  endfunction
     
 endmodule
 
@@ -1247,23 +1247,23 @@ endmodule
 // ********************
 
 module CUIdecoder1(DataBus,Name,Cmd,CmdAllowed,Info);
-input [`BYTE_range] DataBus, Cmd;
-input [8*35:1] Name;
-input Info;
-input  CmdAllowed;         
-always @Kernel.CUIcommandEvent begin
+  input [`BYTE_range] DataBus, Cmd;
+  input [8*35:1] Name;
+  input Info;
+  input  CmdAllowed;         
+  always @Kernel.CUIcommandEvent begin
 
-  if (DataBus == Cmd  && CmdAllowed) begin  // is a First Command ?
-    #1 -> Kernel.VerifyEvent;
-    Kernel.CommandDecode1[Cmd] = !Kernel.CommandDecode1[Cmd];
-    if (Info) $display("[%t]  Command Issued: %0s",$time,Name);
+    if (DataBus == Cmd  && CmdAllowed) begin  // is a First Command ?
+      #1 -> Kernel.VerifyEvent;
+      Kernel.CommandDecode1[Cmd] = !Kernel.CommandDecode1[Cmd];
+      if (Info) $display("[%t]  Command Issued: %0s",$time,Name);
+    end
+    else begin
+      if (`FALSE) $display("[%t]  The %0s instruction decode unit is waiting for operation to complete.",$time,Name);
+      @(Kernel.CompleteEvent or Kernel.ErrorEvent)
+        if (`FALSE) $display("[%t]  The %0s instruction decode unit is listening for next command.",$time,Name);
+    end
   end
-  else begin
-    if (`FALSE) $display("[%t]  The %0s instruction decode unit is waiting for operation to complete.",$time,Name);
-    @(Kernel.CompleteEvent or Kernel.ErrorEvent)
-      if (`FALSE) $display("[%t]  The %0s instruction decode unit is listening for next command.",$time,Name);
-  end
-end
 endmodule
 
 // ********************
@@ -1274,12 +1274,12 @@ endmodule
 // ********************
 
 module CUIdecoder2(DataBus,Name,Cmd1,Cmd2,CmdAllowed,Info);
-input [`BYTE_range] DataBus, Cmd1, Cmd2;
-input [8*27:1] Name;
-input Info;
-input  CmdAllowed; 
+  input [`BYTE_range] DataBus, Cmd1, Cmd2;
+  input [8*27:1] Name;
+  input Info;
+  input  CmdAllowed; 
 
-always @Kernel.CUIcommandEvent begin
+  always @Kernel.CUIcommandEvent begin
   if (DataBus == Cmd1 && CmdAllowed) begin
      #1 -> Kernel.VerifyEvent;
 
@@ -1310,21 +1310,21 @@ endmodule
 // ****************************
 
 module CUIdecoder_Busy1(DataBus,Name,Cmd,CmdAllowed,Info);
-input [`BYTE_range] DataBus, Cmd;
-input [8*8:1] Name;
-input Info;
-input  CmdAllowed; 
-          
-always @Kernel.CUIcommandEvent begin
-  if ((DataBus == Cmd) && CmdAllowed) begin
-    -> Kernel.VerifyEvent;
-    Kernel.CommandDecode1[Cmd] = !Kernel.CommandDecode1[Cmd];
-    if (Info) $display("[%t]  Command Issued: %0s",$time,Name);
+  input [`BYTE_range] DataBus, Cmd;
+  input [8*8:1] Name;
+  input Info;
+  input  CmdAllowed; 
+            
+  always @Kernel.CUIcommandEvent begin
+    if ((DataBus == Cmd) && CmdAllowed) begin
+      -> Kernel.VerifyEvent;
+      Kernel.CommandDecode1[Cmd] = !Kernel.CommandDecode1[Cmd];
+      if (Info) $display("[%t]  Command Issued: %0s",$time,Name);
+    end
+
+
+
   end
-
-
-
-end
 
 endmodule
 
@@ -1486,132 +1486,132 @@ endmodule  //end module Erase
 // *********************
 
 module MemoryModule(Info);
-input Info;
-reg [`WORD_range] memory [0:(`MEMORY_dim) - 1];     // the Memory: word organization
+  input Info;
+  reg [`WORD_range] memory [0:(`MEMORY_dim) - 1];     // the Memory: word organization
 
-parameter FILENAME_MEM="";
+  parameter FILENAME_MEM="";
 
-initial begin 
-        LoadMemory;
-end 
+  initial begin 
+          LoadMemory;
+  end 
 
-  task LoadMemory;                                // Initialize and load the memory from a file
-  integer i;     
-  integer fd, init_size;     
-    begin
-      #0 if (Info) $display("[%t] Inizialize the Memory to default value",$time);
-     
-      for (i = 0; i < `MEMORY_dim; i = i + 1)  memory[i] = {16{`HIGH}};    // Memory Init
+    task LoadMemory;                                // Initialize and load the memory from a file
+    integer i;     
+    integer fd, init_size;     
+      begin
+        #0 if (Info) $display("[%t] Inizialize the Memory to default value",$time);
       
-      if (FILENAME_MEM !== "") begin
-          // $readmemb(FILENAME_MEM, memory);
-          fd = $fopen(FILENAME_MEM ,"rb");
-          if(fd)begin
-            if (Info) $display("[%t] Load Memory from file: %s",$time, FILENAME_MEM);
-            init_size = $fread(memory, fd) / 2;
-            $fclose(fd);
-            for (i = 0; i < init_size; i = i + 1)
-              memory[i] = {memory[i][0+:8],memory[i][8+:8]};
-          end
-          else begin
-            if (Info) $display("[%t] Warning: File: %s not found",$time, FILENAME_MEM);
-          end
+        for (i = 0; i < `MEMORY_dim; i = i + 1)  memory[i] = {16{`HIGH}};    // Memory Init
+        
+        if (FILENAME_MEM !== "") begin
+            // $readmemb(FILENAME_MEM, memory);
+            fd = $fopen(FILENAME_MEM ,"rb");
+            if(fd)begin
+              if (Info) $display("[%t] Load Memory from file: %s",$time, FILENAME_MEM);
+              init_size = $fread(memory, fd) / 2;
+              $fclose(fd);
+              for (i = 0; i < init_size; i = i + 1)
+                memory[i] = {memory[i][0+:8],memory[i][8+:8]};
+            end
+            else begin
+              if (Info) $display("[%t] Warning: File: %s not found",$time, FILENAME_MEM);
+            end
+        end
       end
-    end
-  endtask
+    endtask
 
 
-  function [`WORD_range] Get;
-  input [`ADDRBUS_range] address;
-        Get = memory[address];
-  endfunction
+    function [`WORD_range] Get;
+    input [`ADDRBUS_range] address;
+          Get = memory[address];
+    endfunction
 
-   
-  function IsSuspended;
-  input [`ADDRBUS_range] address;
-    IsSuspended = Program_man.IsAddrSuspended(address) || Erase_man.IsAddrSuspended(address) || ProgramBuffer_man.IsAddrSuspended(address);
-  endfunction
+    
+    function IsSuspended;
+    input [`ADDRBUS_range] address;
+      IsSuspended = Program_man.IsAddrSuspended(address) || Erase_man.IsAddrSuspended(address) || ProgramBuffer_man.IsAddrSuspended(address);
+    endfunction
 
-  function IsBlockSuspended;
-  input [`ADDRBUS_range] address;
-    IsBlockSuspended = Program_man.IsBlockSuspended(address) || Erase_man.IsBlockSuspended(address);
-  endfunction
+    function IsBlockSuspended;
+    input [`ADDRBUS_range] address;
+      IsBlockSuspended = Program_man.IsBlockSuspended(address) || Erase_man.IsBlockSuspended(address);
+    endfunction
 
 
-  task Program;
-  input [`WORD_range] data;
-  input [`ADDRBUS_range] address;
-  output [`BYTE_range] Status;
+    task Program;
+    input [`WORD_range] data;
+    input [`ADDRBUS_range] address;
+    output [`BYTE_range] Status;
+      begin
+        Status = `NoError_msg;
+        memory[address] = memory[address] & data;
+        if (memory[address] != data) Status = `PreProg_msg;
+      end
+    endtask
+    
+    task EraseBlock;
+    
+    input [`INTEGER] block;
+    
+    output [`BYTE_range] ErrFlag;
+
+    reg [`ADDRBUS_range] start_address;
+    reg [`ADDRBUS_range] end_address;
+    reg [`ADDRBUS_range] address;
+
+    
     begin
-      Status = `NoError_msg;
-      memory[address] = memory[address] & data;
-      if (memory[address] != data) Status = `PreProg_msg;
+        ErrFlag = `NoError_msg;
+        start_address = BankLib_man.getBlockAddress(block);
+        end_address   = BankLib_man.BlockBoundaryEndAddr[block];
+
+        if (start_address > end_address)
+          begin
+                  address = start_address;
+                  start_address = end_address;
+                  end_address = address;
+          end
+          
+        
+        for (address = start_address; address <= end_address; address = address + 1)
+          memory[address] = `WORDNP;
+
     end
-  endtask
-  
-  task EraseBlock;
-  
-  input [`INTEGER] block;
-  
-  output [`BYTE_range] ErrFlag;
+    endtask
 
-  reg [`ADDRBUS_range] start_address;
-  reg [`ADDRBUS_range] end_address;
-  reg [`ADDRBUS_range] address;
+    task BlockBlankCheck;
+    
+    input [`INTEGER] block;
+    
+    output [`BYTE_range] ErrFlag;
 
-  
-  begin
-      ErrFlag = `NoError_msg;
-      start_address = BankLib_man.getBlockAddress(block);
-      end_address   = BankLib_man.BlockBoundaryEndAddr[block];
+    reg [`ADDRBUS_range] start_address;
+    reg [`ADDRBUS_range] end_address;
+    reg [`ADDRBUS_range] address;
 
-      if (start_address > end_address)
-        begin
-                address = start_address;
-                start_address = end_address;
-                end_address = address;
-        end
-        
-      
-      for (address = start_address; address <= end_address; address = address + 1)
-        memory[address] = `WORDNP;
+    
+    begin
+        ErrFlag = `NoError_msg;
+        start_address = BankLib_man.BlockBoundaryStartAddr[block];
+        end_address   = BankLib_man.BlockBoundaryEndAddr[block];
 
-  end
-  endtask
+        if (start_address > end_address)
+          begin
+                  address = start_address;
+                  start_address = end_address;
+                  end_address = address;
+          end
+          
+        ErrFlag = `NoError_msg;
+        address = start_address;
+        while (memory[address] == `WORDNP && address <= end_address ) 
+          address = address + 1;
+        if (memory[address] != `WORDNP)  
+          ErrFlag = `BlankCheckFailed_msg;
 
-   task BlockBlankCheck;
-  
-  input [`INTEGER] block;
-  
-  output [`BYTE_range] ErrFlag;
-
-  reg [`ADDRBUS_range] start_address;
-  reg [`ADDRBUS_range] end_address;
-  reg [`ADDRBUS_range] address;
-
-  
-  begin
-      ErrFlag = `NoError_msg;
-      start_address = BankLib_man.BlockBoundaryStartAddr[block];
-      end_address   = BankLib_man.BlockBoundaryEndAddr[block];
-
-      if (start_address > end_address)
-        begin
-                address = start_address;
-                start_address = end_address;
-                end_address = address;
-        end
-        
-      ErrFlag = `NoError_msg;
-      address = start_address;
-      while (memory[address] == `WORDNP && address <= end_address ) 
-        address = address + 1;
-      if (memory[address] != `WORDNP)  
-        ErrFlag = `BlankCheckFailed_msg;
-
-  end
-  endtask 
-  
+    end
+    endtask 
+    
 
   
 endmodule //end MemoryModule 
@@ -3852,7 +3852,8 @@ module ProgramBufferModule(address,data,voltOK,Info);
   input [`WORD_range] data;
   input  voltOK, Info;
   event ErrorCheckEvent, CompleteEvent, WatchAddressEvent;
-  reg [`BYTE_range] Status, Count;
+  reg [`BYTE_range] Status;
+  reg [8:0] Count;
   reg [`WORD_range] bufferData [`ProgramBuffer_range];
 
   reg [`ADDRBUS_range] AddressLatched, startAddress,newAddress;
@@ -3882,7 +3883,7 @@ module ProgramBufferModule(address,data,voltOK,Info);
     IsAddrSuspended = (Suspended && ((addr >= startAddress) && (addr < (startAddress + Count))));
   endfunction
 
-  function [`BYTE_range] GetCount;    // gets the number of writes (of bytes of words, depending on byte_n)
+  function [8:0] GetCount;    // gets the number of writes (of bytes of words, depending on byte_n)
   input required;
     GetCount = Count;
   endfunction
