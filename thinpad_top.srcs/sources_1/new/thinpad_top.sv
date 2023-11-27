@@ -196,7 +196,7 @@ module thinpad_top (
       .clock(sys_clk),
       .reset(sys_rst),
 
-      .bypass(/*d_cache_bypass*/1), /* Hardwire to 1 if you want to explicitly disable D-cache. */
+      .bypass(/*d_cache_bypass*/1),  /* Hardwire to 1 if you want to explicitly disable D-cache. */
       .flush(d_cache_clear),
       .invalidate(1'b0),
       .clear_complete(d_cache_clear_complete),
@@ -298,7 +298,7 @@ module thinpad_top (
   cu_pipeline control_unit (
       .clk(sys_clk),
       .rst(sys_rst),
-
+      .fast_clock(clk_50M),
       .dau_instr_re_o(i_cache_re),
       .dau_instr_addr_o(i_cache_addr),
       .dau_instr_ack_i(i_cache_ack),

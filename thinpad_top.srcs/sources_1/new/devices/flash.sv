@@ -341,7 +341,7 @@ module flash_controller #(
         INIT: begin
           // move to set double async.
           flash_data_o_r <= 16'h0060;
-          flash_addr_o_r <= {7'b0, 16'hA000};
+          flash_addr_o_r <= {7'b0, 16'h4000};
           if (cycle_counter > 0) begin
             cycle_counter <= cycle_counter - 1;
           end else begin
@@ -364,7 +364,7 @@ module flash_controller #(
           end
         end
         CONFIRM_DOUBLE_ASYNC_PREP: begin
-          flash_data_o_r <= 16'h0003;
+          flash_data_o_r <= 16'h0004;
           // flash_addr_o_r <= {6'b0, 16'h2000, 1'b0}; 
           flash_we_n_o_r <= 1'b0;
           cycle_counter  <= WRITE_CYCLES;
@@ -597,7 +597,7 @@ module flash_controller #(
             wb_dat_o_c[15:8]  <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][15:8] : 8'b0;
             wb_dat_o_c[23:16] <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][23:16] : 8'b0;
             wb_dat_o_c[31:24] <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][31:24] : 8'b0;
-          end else if (wb_adr_i == 1025) begin
+          end else if (wb_adr_i == 1028) begin
             wb_dat_o_c <= {30'b0, write_ready, read_ready};
           end
         end

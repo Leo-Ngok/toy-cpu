@@ -2,6 +2,7 @@
 module cu_pipeline (
     input wire clk,
     input wire rst,
+    input wire fast_clock,
 
     // Device access unit
     output wire        dau_instr_re_o,
@@ -676,7 +677,7 @@ module cu_pipeline (
       .wb_ip (wb_ip)
   );
   ila analyzer (
-      .clk(clk),
+      .clk(fast_clock),
       .probe0(pre_if_ip),
       .probe1(id_ip),
       .probe2(alu_ip),
