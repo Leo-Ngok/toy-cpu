@@ -354,6 +354,7 @@ module thinpad_top (
   assign video_clk   = clk_50M;
   vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
       .clk        (clk_50M),
+      .rst        (sys_rst),
       .hdata      (hdata),        // 横坐标
       .vdata      (),             // 纵坐标
       .hsync      (video_hsync),

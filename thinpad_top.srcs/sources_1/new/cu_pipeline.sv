@@ -54,9 +54,9 @@ module cu_pipeline (
     input wire [63:0] mtime
 );
   parameter INSTR_BASE_ADDR = 32'h8000_0000;
-  // Pre - IF
-  wire [31:0] pre_if_ip;
-  // IF
+  // ========================================== IF0 ==========================================
+  wire [31:0] if0_ip;
+  // ========================================== IF2 ==========================================
   wire [31:0] satp;
 
   wire        jump_pred;
@@ -69,11 +69,13 @@ module cu_pipeline (
   wire        if_addr_misaligned;
   wire        if_no_exec_access;
   wire        if_mmu_error;
-  // ID
+  // ========================================== ID ==========================================
   // From IF stage
   wire [31:0] id_instr;
   wire [31:0] id_ip;
   wire        id_jump_pred;
+  wire [31:0] id_pred_pc;
+
   // Intra stage signals.
   wire [ 4:0] decoder_raddr1;
   wire [ 4:0] decoder_raddr2;
@@ -89,7 +91,7 @@ module cu_pipeline (
 
   wire [31:0] id_mux_alu_op1;
   wire [31:0] id_mux_alu_op2;
-  // ALU
+  // ========================================== ALU ==========================================
   // From ID stage
   wire [31:0] alu_ip;
   wire        alu_jump_pred;
@@ -118,7 +120,7 @@ module cu_pipeline (
   wire [31:0] alu_mwdata_adjusted;
   wire [ 3:0] alu_mbe_adjusted;
   wire [31:0] alu_wbdata_adjusted;
-  // MEM
+  // ========================================== MEM ==========================================
   // From ALU stage
   wire [31:0] mem_instr;
   wire [31:0] mem_ip;
@@ -142,7 +144,6 @@ module cu_pipeline (
   // Stage generated signals.
   wire [31:0] mem_mmu_data_arrival;
   wire        mem_mmu_ack;
-  wire [31:0] mem_mrdata_adjusted;
   wire [31:0] mem_rf_wdata;
   wire        mem_pause;
 
@@ -158,11 +159,22 @@ module cu_pipeline (
   wire        mem_write_violation;
   wire        mem_read_violation;
   wire        mem_addr_misaligned;
-  // WB
-  wire        wb_we;
-  wire [ 4:0] wb_addr;
-  wire [31:0] wb_data;
+  // ========================================== WB ==========================================
   wire [31:0] wb_ip;
+  wire [31:0] wb_instr;
+  wire [ 4:0] wb_addr;
+
+  wire        wb_we;
+  wire        wb_mre;
+  wire        wb_csracc;
+
+  wire [31:0] wb_maddr;
+  wire [31:0] wb_mdata;
+  wire [31:0] wb_csrdata;
+  wire [31:0] wb_aludata;
+  // Stage generated signals.
+  wire [31:0] wb_mrdata_adjusted;
+  wire [31:0] wb_data;
   // Bubble case
   wire [31:0] if_id_flush_ip;
   wire [31:0] id_alu_flush_ip;
@@ -185,10 +197,48 @@ module cu_pipeline (
   wire        mem_instr_page_fault;
   wire        mem_instr_addr_misaligned;
   wire        mem_instr_no_exec_access;
-  // IF
+  // ========================================== IF2 ==========================================
+  mmu instr_mm (
+      .clock(clk),
+      .reset(rst),
+
+      .satp(satp),
+      .va  (if0_ip),
+      .pa  (dau_instr_addr_o),
+
+      .data_we_i(1'b0),
+      .data_re_i(1'b1),
+      .byte_en_i(4'b1111),
+      .data_departure_i(32'b0),
+      .data_arrival_o(if_mmu_data_arrival),
+      .data_ack_o(if_mmu_ack),
+
+      .data_we_o(),
+      .data_re_o(dau_instr_re_o),
+      .byte_en_o(),
+      .data_departure_o(),
+      .data_arrival_i(dau_instr_data_i),
+      .data_ack_i(dau_instr_ack_i),
+
+      .bypass(dau_instr_bypass_o),
+      .invalidate_tlb(mem_invalidate_tlb),
+      .if_enable(1'b1),
+      .priv(csr_inst.privilege),
+      .sum(csr_inst.sum),
+
+      .page_fault(if_page_fault),
+      .no_read_access(),  // never
+      .no_write_access(),  // never
+      .no_exec_access(if_no_exec_access),  // TODO
+      .addr_misaligned(if_addr_misaligned),
+      .mmu_error(if_mmu_error),
+
+      .pte_debug()
+  );
+
   next_instr_ptr ip_predict (
       .mem_ack(),
-      .curr_ip(pre_if_ip),
+      .curr_ip(if0_ip),
       .curr_instr(if_mmu_data_arrival),
       .next_ip_pred(next_ip_pred),
       .jump_pred(jump_pred)
@@ -206,7 +256,7 @@ module cu_pipeline (
 
       .res_ip(next_ip)
   );
-  // ID
+  // ========================================== ID ==========================================
   assign rf_raddr1 = decoder_raddr1;
   assign rf_raddr2 = decoder_raddr2;
   instr_decoder instruction_decoder (
@@ -246,7 +296,7 @@ module cu_pipeline (
       .rdata1_out(id_mux_alu_op1),
       .rdata2_out(id_mux_alu_op2)
   );
-  // ALU
+  // ========================================== ALU ==========================================
   assign alu_opcode = alu_instr;
   assign alu_in1 = alu_op1;
   assign alu_in2 = alu_op2;
@@ -274,24 +324,19 @@ module cu_pipeline (
       .alu_out(alu_out),
       .wb_wdata(alu_wbdata_adjusted)
   );
-  // MEM
+  // ========================================== MEM ==========================================
   assign dau_cache_clear = mem_clear_icache || mem_clear_tlb;
   assign mem_invalidate_icache = dau_cache_clear_complete && mem_clear_icache;
   assign mem_invalidate_tlb = dau_cache_clear_complete && mem_clear_tlb;
   assign dau_instr_cache_invalidate = mem_invalidate_icache;
-  mem_data_recv_adjust mem_read_adjust (
-      .instr(mem_instr),
-      .mem_addr(mem_addr),
-      .data_i(mem_mmu_data_arrival),
-      .data_o(mem_mrdata_adjusted)
-  );
+
   rf_write_data_mux rf_wdata_mux (
       .rf_we  (mem_wbwe),
-      .mem_re (mem_mre),
+      .mem_re (0),
       .csr_acc(mem_csracc),
 
       .alu_data(mem_wbdata),
-      .mem_data(mem_mrdata_adjusted),
+      .mem_data('0),
       .csr_data(mem_csrwb),
 
       .out_data(mem_rf_wdata)
@@ -374,47 +419,27 @@ module cu_pipeline (
 
       .pte_debug(pte_debug)
   );
-  mmu instr_mm (
-      .clock(clk),
-      .reset(rst),
-
-      .satp(satp),
-      .va  (pre_if_ip),
-      .pa  (dau_instr_addr_o),
-
-      .data_we_i(1'b0),
-      .data_re_i(1'b1),
-      .byte_en_i(4'b1111),
-      .data_departure_i(32'b0),
-      .data_arrival_o(if_mmu_data_arrival),
-      .data_ack_o(if_mmu_ack),
-
-      .data_we_o(),
-      .data_re_o(dau_instr_re_o),
-      .byte_en_o(),
-      .data_departure_o(),
-      .data_arrival_i(dau_instr_data_i),
-      .data_ack_i(dau_instr_ack_i),
-
-      .bypass(dau_instr_bypass_o),
-      .invalidate_tlb(mem_invalidate_tlb),
-      .if_enable(1'b1),
-      .priv(csr_inst.privilege),
-      .sum(csr_inst.sum),
-
-      .page_fault(if_page_fault),
-      .no_read_access(),  // never
-      .no_write_access(),  // never
-      .no_exec_access(if_no_exec_access),  // TODO
-      .addr_misaligned(if_addr_misaligned),
-      .mmu_error(if_mmu_error),
-
-      .pte_debug()
-  );
-  // WB
+  // ========================================== WB ==========================================
   assign rf_we    = wb_we;
   assign rf_waddr = wb_addr;
   assign rf_wdata = wb_data;
+  mem_data_recv_adjust wb_read_adjust (
+      .instr(wb_instr),
+      .mem_addr(wb_maddr),
+      .data_i(wb_mdata),
+      .data_o(wb_mrdata_adjusted)
+  );
+  rf_write_data_mux wb_wdata_mux (
+      .rf_we  (wb_we),
+      .mem_re (wb_mre),
+      .csr_acc(wb_csracc),
+
+      .alu_data(wb_aludata),
+      .mem_data(wb_mrdata_adjusted),
+      .csr_data(wb_csrdata),
+
+      .out_data(wb_data)
+  );
 
   wire pre_if_stall;
   wire if_id_stall;
@@ -430,7 +455,7 @@ module cu_pipeline (
   wire debug_pause;
 
   cu_orchestra cu_control (
-      .if_ip(pre_if_ip),
+      .if_ip(if0_ip),
       .if_instr(if_mmu_data_arrival),
       .if_ack(if_mmu_ack),
       .if_page_fault(if_page_fault),
@@ -491,7 +516,7 @@ module cu_pipeline (
       .error (),
 
       .next_instr_ptr(next_ip),
-      .instr_ptr(pre_if_ip)
+      .instr_ptr(if0_ip)
   );
   if_id ppl_if_id (
       .clock(clk),
@@ -501,7 +526,7 @@ module cu_pipeline (
       .bubble(if_id_bubble),
       .error (),
 
-      .if_ip(pre_if_ip),
+      .if_ip(if0_ip),
       .id_ip(id_ip),
 
       .if_jump_pred(jump_pred),
@@ -509,6 +534,9 @@ module cu_pipeline (
 
       .if_instr(if_mmu_data_arrival),
       .id_instr(id_instr),
+
+      .if_pred_pc(next_ip_pred),
+      .id_pred_pc(id_pred_pc),
 
       .bubble_ip(if_id_flush_ip),
 
@@ -538,15 +566,20 @@ module cu_pipeline (
       .id_jump_pred(id_jump_pred),
       .ex_jump_pred(alu_jump_pred),
 
+      .id_pred_pc(id_pred_pc),
+      .ex_pred_pc(),
+
       .id_instr(id_instr),
       .ex_instr(alu_instr),
 
       // Prepare for what ALU need.
       .id_op1(id_mux_alu_op1),
       .id_op2(id_mux_alu_op2),
+      .id_imm(32'b0),
 
       .ex_op1(alu_op1),
       .ex_op2(alu_op2),
+      .ex_imm(),
 
       .id_mre(decoder_mre),
       .ex_mre(alu_mre),
@@ -554,7 +587,7 @@ module cu_pipeline (
       .id_mwe(decoder_mwe),
       .ex_mwe(alu_mwe),
 
-      .id_mdata(id_mux_alu_op2),  // Note that this bus is used only in STORE instructions.
+      .id_mdata(id_mux_alu_op2),
       .ex_mdata(alu_mwdata),
 
       .id_csracc(decoder_csracc),
@@ -613,11 +646,14 @@ module cu_pipeline (
       .ex_mbe (alu_mbe_adjusted),
       .mem_mbe(mem_mbe),
 
-      .ex_maddr (alu_out),  // we always calculate sum of base and offset for mem address
+      .ex_maddr (alu_out),
       .mem_maddr(mem_addr),
 
       .ex_mdata (alu_mwdata_adjusted),
       .mem_mdata(mem_data),
+
+      .ex_mpa (32'b0),
+      .mem_mpa(),
 
       .ex_csracc (alu_csracc),
       .mem_csracc(mem_csracc),
@@ -652,7 +688,6 @@ module cu_pipeline (
 
       .bubble_ip(alu_mem_flush_ip)
   );
-  wire [31:0] wb_instr;
   mem_wb ppl_mem_wb (
       .clock(clk),
       .reset(rst),
@@ -661,24 +696,40 @@ module cu_pipeline (
       .bubble(mem_wb_bubble),
       .error (),
 
-      .mem_we(mem_wbwe),
-      .wb_we (wb_we),
-
-      .mem_wraddr(mem_wbaddr),
-      .wb_wraddr (wb_addr),
-
-      .mem_wdata(mem_rf_wdata),
-      .wb_wdata (wb_data),
+      .bubble_ip(mem_wb_flush_ip),
+      .mem_ip(mem_ip),
+      .wb_ip(wb_ip),
 
       .mem_instr(mem_instr),
       .wb_instr (wb_instr),
 
-      .mem_ip(mem_ip),
-      .wb_ip (wb_ip)
+      .mem_we(mem_wbwe),
+      .wb_we (wb_we),
+
+      .mem_mre(mem_mre),
+      .wb_mre (wb_mre),
+
+      .mem_csracc(mem_csracc),
+      .wb_csracc (wb_csracc),
+
+      .mem_wraddr(mem_wbaddr),
+      .wb_wraddr (wb_addr),
+
+      .mem_maddr(mem_addr),
+      .wb_maddr (wb_maddr),
+
+      .mem_wmdata(mem_mmu_data_arrival),
+      .wb_wmdata (wb_mdata),
+
+      .mem_wcsrdata(mem_csrwb),
+      .wb_wcsrdata (wb_csrdata),
+
+      .mem_waludata(mem_wbdata),
+      .wb_waludata (wb_aludata)
   );
   ila analyzer (
       .clk(fast_clock),
-      .probe0(pre_if_ip),
+      .probe0(if0_ip),
       .probe1(id_ip),
       .probe2(alu_ip),
       .probe3(mem_ip),
@@ -717,84 +768,6 @@ module cu_pipeline (
       .probe36(csr_inst.timer_interrupt),
       .probe37(csr_inst.cause_comb)
   );
-  // ila analyzer(
-  //     .clk(clk),
-  //     .probe0(pre_if_ip),
-  //     .probe1(id_instr),
-  //     .probe2(alu_instr),
-  //     .probe3(mem_instr),
-  //     .probe4(dau_data_o),
-  //     .probe5(dau_instr_addr_o)
-  // );
-
-  //assign curr_ip_out = wb_ip;
-
-  // debug dbg(
-  //     .mstatus(csr_inst.mstatus),
-  //     .medeleg(csr_inst.medeleg),
-  //     .mideleg(csr_inst.mideleg),
-  //     .mie(csr_inst.mie),
-  //     .mtvec(csr_inst.mtvec),
-  //     .mscratch(csr_inst.mscratch),
-  //     .mepc(csr_inst.mepc),
-  //     .mcause(csr_inst.mcause),
-  //     .mtval(csr_inst.mtval),
-  //     .mip(csr_inst.mip),
-  //     .stvec(csr_inst.stvec),
-  //     .sscratch(csr_inst.sscratch),
-  //     .sepc(csr_inst.sepc),
-  //     .scause(csr_inst.scause),
-  //     .stval(csr_inst.stval),
-  //     .satp(csr_inst.satp),
-
-  //     .if_ip(pre_if_ip),
-  //     .if_instr(if_mmu_data_arrival),
-
-  //     .id_ip(id_ip),
-  //     .id_instr(id_instr),
-
-  //     .ex_ip(alu_ip),
-  //     .ex_instr(alu_instr),
-
-  //     .mem_ip(mem_ip),
-  //     .mem_instr(mem_instr),
-
-  //     .wb_ip(wb_ip),
-  //     .wb_instr(wb_instr),
-
-  //     .id_iaf(id_instr_no_exec_access),
-  //     .id_iam(id_instr_addr_misaligned),
-  //     .id_ipf(id_instr_page_fault),
-
-  //     .ex_iaf(ex_instr_no_exec_access),
-  //     .ex_iam(ex_instr_addr_misaligned),
-  //     .ex_ipf(ex_instr_page_fault),
-
-  //     .mem_iaf(mem_instr_no_exec_access),
-  //     .mem_iam(mem_instr_addr_misaligned),
-  //     .mem_ipf(mem_instr_page_fault),
-
-  //     .csr_exception(csr_pause),
-
-  //     .mem_addr(mem_addr),
-  //     .mem_pte(pte_debug), // TODO
-
-  //     .dip_sw(dip_sw),
-  //     .touch_btn(touch_btn),
-  //     .leds(leds),
-  //     .clock(clk),
-  //     .reset(rst),
-  //     .step(step),
-  //     .global_pause(debug_pause)
-  // );
-  //     SEG7_LUT seg_lo (
-  //       .oSEG1(dpy0),
-  //       .iDIG ({2'b0, csr_inst.privilege})
-  //   );
-  //   SEG7_LUT seg_hi (
-  //       .oSEG1(dpy1),
-  //       .iDIG (csr_inst.cause_comb[3:0])
-  //   );
 endmodule
 
 module cu_orchestra (
@@ -899,7 +872,7 @@ module cu_orchestra (
     id_wait_req = (alu_instr[6:0] == 7'b000_0011 &&  // LOAD instr in ALU
     (alu_waddr == id_raddr1 || alu_waddr == id_raddr2)
         ) || (
-            mem_instr[6:0] == 7'b000_0011 && !mem_ack &&
+            mem_instr[6:0] == 7'b000_0011 /*&& !mem_ack */ &&
             (mem_waddr == id_raddr1 || mem_waddr == id_raddr2)
         ) || ( // CSR Related writes
     alu_instr[6:0] == 7'b1110011 && alu_instr[14:12] > 0 &&
@@ -973,194 +946,3 @@ module cu_orchestra (
   end
 
 endmodule
-
-// module debug(
-//     input wire [31:0] mstatus,
-//     input wire [31:0] medeleg,
-//     input wire [31:0] mideleg,
-//     input wire [31:0] mie,
-//     input wire [31:0] mtvec,
-//     input wire [31:0] mscratch,
-//     input wire [31:0] mepc,
-//     input wire [31:0] mcause,
-//     input wire [31:0] mtval,
-//     input wire [31:0] mip,
-//     input wire [31:0] stvec,
-//     input wire [31:0] sscratch,
-//     input wire [31:0] sepc,
-//     input wire [31:0] scause,
-//     input wire [31:0] stval,
-//     input wire [31:0] satp,
-
-//     input wire [31:0] if_ip,
-//     input wire [31:0] if_instr,
-//     input wire [31:0] id_ip,
-//     input wire [31:0] id_instr,
-//     input wire [31:0] ex_ip,
-//     input wire [31:0] ex_instr,
-//     input wire [31:0] mem_ip,
-//     input wire [31:0] mem_instr,
-//     input wire [31:0] wb_ip,
-//     input wire [31:0] wb_instr,
-
-//     input wire id_iaf,
-//     input wire id_iam,
-//     input wire id_ipf,
-//     input wire ex_iaf,
-//     input wire ex_iam,
-//     input wire ex_ipf,
-//     input wire mem_iaf,
-//     input wire mem_iam,
-//     input wire mem_ipf,
-
-//     input wire csr_exception,
-
-//     input wire [31:0] mem_addr,
-//     input wire [31:0] mem_pte,
-
-//     input wire [31:0] dip_sw,
-//     input wire [ 3:0] touch_btn,
-//     output reg [15:0] leds,
-
-//     input wire clock,
-//     input wire reset,
-
-//     input wire step,
-//     output reg global_pause
-// );
-//     typedef enum logic [2:0] {
-//         WAIT, NORMAL, PAUSE, NEXT
-//     } debug_state_t;
-//     debug_state_t state;
-//     reg [31:0] breakpoint_addr;
-//     always_ff @(posedge clock or posedge reset) begin
-//         if(reset) begin
-//             state <= WAIT;
-//             breakpoint_addr <= 32'h8000_0000;
-//         end else begin
-//             case(state) 
-//             WAIT: begin
-//                 if(step) begin
-//                     state <= NORMAL;
-//                     breakpoint_addr <= dip_sw;
-//                 end
-//             end
-//             NORMAL: begin
-//                 if(mem_ip == breakpoint_addr || csr_exception) begin
-//                     state <= PAUSE;
-//                 end
-//             end
-//             PAUSE: begin
-//                 if(step) begin
-//                     if(touch_btn == 4'b1111) begin
-//                         state <= NORMAL;
-//                         breakpoint_addr <= dip_sw;
-//                     end else begin
-//                         state <= NEXT;
-//                     end
-//                 end
-//             end
-//             NEXT:begin
-//                 state <= PAUSE;
-//             end
-//             endcase
-//         end
-//     end
-
-//     always_comb begin
-//         global_pause = 0;
-//         case(state) 
-//         WAIT: begin
-//             global_pause = 1;
-//         end
-//         NORMAL: begin
-//             if(mem_ip == breakpoint_addr || csr_exception) begin
-//                 global_pause = 1;
-//             end
-//         end
-//         PAUSE: begin
-//             global_pause = 1;
-//         end
-
-//         endcase
-//         case(dip_sw) 
-//         16'h0300: leds = mstatus[15:0];
-//         16'h1300: leds = mstatus[31:16];
-//         16'h0302: leds = medeleg[15:0];
-//         16'h1302: leds = medeleg[31:16];
-//         16'h0303: leds = mideleg[15:0];
-//         16'h0304: leds = mie[15:0];
-//         16'h0305: leds = mtvec[15:0];
-
-//         16'h1303: leds = mideleg[31:16];
-//         16'h1304: leds = mie[31:16];
-//         16'h1305: leds = mtvec[31:16];
-
-//         16'h0340: leds = mscratch[15:0];
-//         16'h0341: leds = mepc[15:0];
-//         16'h0342: leds = mcause[15:0];
-//         16'h0343: leds = mtval[15:0];
-//         16'h0344: leds = mip[15:0];
-
-//         // sstatus shares with mstatus, however, mask it with bits that available for supervisor mode.
-//         16'h0105: leds = stvec[15:0];
-
-//         12'h0140: leds = sscratch[15:0];
-//         12'h0141: leds = sepc[15:0];
-//         12'h0142: leds = scause[15:0];
-//         12'h0143: leds = stval[15:0];
-
-//         12'h0180: leds = satp[15:0];
-
-//         16'h1340: leds = mscratch[31:16];
-//         16'h1341: leds = mepc[31:16];
-//         16'h1342: leds = mcause[31:16];
-//         16'h1343: leds = mtval[31:16];
-//         16'h1344: leds = mip[31:16];
-
-//         // sstatus shares with mstatus, however, mask it with bits that available for supervisor mode.
-//         16'h1105: leds = stvec[31:16];
-
-//         16'h1140: leds = sscratch[31:16];
-//         16'h1141: leds = sepc[31:16];
-//         16'h1142: leds = scause[31:16];
-//         16'h1143: leds = stval[31:16];
-
-//         16'h1180: leds = satp[31:16];
-
-//         16'h2000: leds = if_ip[15:0]; // 8192
-//         16'h2001: leds = id_ip[15:0];
-//         16'h2002: leds = ex_ip[15:0];
-//         16'h2003: leds = mem_ip[15:0];
-//         16'h2004: leds = wb_ip[15:0];
-
-//         16'h2005: leds = if_ip[31:16]; // 8197
-//         16'h2006: leds = id_ip[31:16];
-//         16'h2007: leds = ex_ip[31:16];
-//         16'h2008: leds = mem_ip[31:16];
-//         16'h2009: leds = wb_ip[31:16];
-
-//         16'h200a: leds = if_instr[15:0]; // 8202
-//         16'h200b: leds = id_instr[15:0];
-//         16'h200c: leds = ex_instr[15:0];
-//         16'h200d: leds = mem_instr[15:0];
-//         16'h200e: leds = wb_instr[15:0];
-
-//         16'h200f: leds = if_instr[31:16]; // 8207
-//         16'h2010: leds = id_instr[31:16];
-//         16'h2011: leds = ex_instr[31:16];
-//         16'h2012: leds = mem_instr[31:16];
-//         16'h2013: leds = wb_instr[31:16];
-
-//         16'h2014: leds = {13'b0, id_iaf, id_iam, id_ipf}; // 8212
-//         16'h2014: leds = {13'b0, ex_iaf, ex_iam, ex_ipf};
-//         16'h2014: leds = {13'b0, mem_iaf, mem_iam, mem_ipf};
-//         16'h2014: leds = mem_addr[15:0];
-//         16'h2014: leds = mem_addr[31:16];
-//         16'h2014: leds = mem_pte[15:0];
-//         16'h2014: leds = mem_pte[31:16];
-//         default: leds = 16'b0;
-
-//         endcase
-//     end 
-// endmodule

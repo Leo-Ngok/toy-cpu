@@ -12,14 +12,14 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="33700000001fs"></ZoomEndTime>
-      <Cursor1Time time="3000000000fs"></Cursor1Time>
+      <ZoomEndTime time="314039381fs"></ZoomEndTime>
+      <Cursor1Time time="1000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="192"></NameColumnWidth>
-      <ValueColumnWidth column_width="181"></ValueColumnWidth>
+      <ValueColumnWidth column_width="171"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="34" />
+   <WVObjectSize size="41" />
    <wvobject fp_name="/tb/clk_50M" type="logic">
       <obj_property name="ElementShortName">clk_50M</obj_property>
       <obj_property name="ObjectShortName">clk_50M</obj_property>
@@ -39,7 +39,6 @@
    <wvobject fp_name="group40" type="group">
       <obj_property name="label">Base SRAM</obj_property>
       <obj_property name="DisplayName">label</obj_property>
-      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb/base_ram_data" type="array">
          <obj_property name="ElementShortName">base_ram_data[31:0]</obj_property>
          <obj_property name="ObjectShortName">base_ram_data[31:0]</obj_property>
@@ -68,7 +67,6 @@
    <wvobject fp_name="group41" type="group">
       <obj_property name="label">Ext SRAM</obj_property>
       <obj_property name="DisplayName">label</obj_property>
-      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb/ext_ram_data" type="array">
          <obj_property name="ElementShortName">ext_ram_data[31:0]</obj_property>
          <obj_property name="ObjectShortName">ext_ram_data[31:0]</obj_property>
@@ -170,9 +168,9 @@
       <obj_property name="ElementShortName">locked</obj_property>
       <obj_property name="ObjectShortName">locked</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/control_unit/pre_if_ip" type="array">
-      <obj_property name="ElementShortName">pre_if_ip[31:0]</obj_property>
-      <obj_property name="ObjectShortName">pre_if_ip[31:0]</obj_property>
+   <wvobject fp_name="/tb/dut/control_unit/ppl_if_id/if_ip" type="array">
+      <obj_property name="ElementShortName">if_ip[31:0]</obj_property>
+      <obj_property name="ObjectShortName">if_ip[31:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/dut/control_unit/id_ip" type="array">
       <obj_property name="ElementShortName">id_ip[31:0]</obj_property>
@@ -269,5 +267,33 @@
    <wvobject fp_name="/tb/dut/control_unit/csr_inst/mcause" type="array">
       <obj_property name="ElementShortName">mcause[31:0]</obj_property>
       <obj_property name="ObjectShortName">mcause[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/video_red" type="array">
+      <obj_property name="ElementShortName">video_red[2:0]</obj_property>
+      <obj_property name="ObjectShortName">video_red[2:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/video_green" type="array">
+      <obj_property name="ElementShortName">video_green[2:0]</obj_property>
+      <obj_property name="ObjectShortName">video_green[2:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/video_blue" type="array">
+      <obj_property name="ElementShortName">video_blue[1:0]</obj_property>
+      <obj_property name="ObjectShortName">video_blue[1:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/video_hsync" type="logic">
+      <obj_property name="ElementShortName">video_hsync</obj_property>
+      <obj_property name="ObjectShortName">video_hsync</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/video_vsync" type="logic">
+      <obj_property name="ElementShortName">video_vsync</obj_property>
+      <obj_property name="ObjectShortName">video_vsync</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/hdata" type="array">
+      <obj_property name="ElementShortName">hdata[11:0]</obj_property>
+      <obj_property name="ObjectShortName">hdata[11:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/vga800x600at75/vdata" type="array">
+      <obj_property name="ElementShortName">vdata[11:0]</obj_property>
+      <obj_property name="ObjectShortName">vdata[11:0]</obj_property>
    </wvobject>
 </wave_config>

@@ -99,11 +99,11 @@ module tb;
     // uart.pc_send_byte(8'h10);
     // uart.pc_send_byte(8'h00);
     // uart.pc_send_byte(8'h80);
-    write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\read_flash.bin",
-              32'h8010_0000);
+    //write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\read_flash.bin",
+    //          32'h8010_0000);
     #300000;
-    uart.pc_send_byte(8'h47);
-    write_u32(32'h0);
+    //uart.pc_send_byte(8'h47);
+    //write_u32(32'h0);
     //write_u32(32'h80100000);
   end
 
