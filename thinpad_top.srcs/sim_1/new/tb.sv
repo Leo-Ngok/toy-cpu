@@ -90,7 +90,7 @@ module tb;
     touch_btn = 0;
     reset_btn = 0;
     push_btn = 0;
-    #6000000;
+    #3000000;
 
     // uart.pc_send_byte(8'h47);  // G = 47, T = 54, A = 41
     // // 0x800010a8 <UTEST_PUTC>
