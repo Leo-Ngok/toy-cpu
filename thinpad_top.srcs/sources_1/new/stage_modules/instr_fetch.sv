@@ -95,7 +95,7 @@ module next_instr_ptr (
 
   // Choose the line to be replaced.
   always_comb begin
-    for (int i_way = 0; i_way < N_WAYS; ++i_way) begin
+    for (int i_way = 0; i_way < 4; ++i_way) begin
       if (entries[entry_index][i_way].lru_priority == 2'b0) begin
         lru_replace_idx = i_way;
         break;

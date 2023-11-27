@@ -1,4 +1,4 @@
-`define DEBUG_ADDR_INCR 1
+`define DEBUG_ADDR_INCR 2
 `define MAX_BLOCK_OFF (510 >> (2 - `DEBUG_ADDR_INCR))
 module flash_controller #(
     parameter DATA_WIDTH = 32,
@@ -591,7 +591,7 @@ module flash_controller #(
             if (wb_sel_i[3]) write_block_values[wb_adr_i[8:2]][31:24] <= wb_dat_i[31:24];
           end
         end else begin
-          if (32'd0 <= wb_adr_i && wb_adr_i < 32'd512 && !wb_we_i) begin
+          if (32'd0 <= wb_adr_i && wb_adr_i < 32'd512) begin
             // quest for read data.
             wb_dat_o_c[7:0]   <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][7:0] : 8'b0;
             wb_dat_o_c[15:8]  <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][15:8] : 8'b0;
