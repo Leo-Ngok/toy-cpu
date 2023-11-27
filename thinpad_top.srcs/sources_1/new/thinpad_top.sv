@@ -105,8 +105,8 @@ module thinpad_top (
   logic sys_clk;
   logic sys_rst;
 
-  assign sys_clk = clk_10M;
-  assign sys_rst = reset_of_clk10M;
+  assign sys_clk  = clk_10M;
+  assign sys_rst  = reset_of_clk10M;
 
   assign uart_rdn = 1'b1;
   assign uart_wrn = 1'b1;
@@ -118,7 +118,7 @@ module thinpad_top (
   wire [31:0] dau_data_write;
   wire [31:0] dau_data_read;
   wire        dau_ack;
-  
+
   wire        dau_instr_re;
   wire [31:0] dau_instr_addr;
   wire [31:0] dau_instr_data;
@@ -166,128 +166,128 @@ module thinpad_top (
   wire step;
 
 
-  cache icache(
-    .clock(sys_clk),
-    .reset(sys_rst),
-    
-    .bypass(i_cache_bypass),
-    .flush(1'b0),
-    .invalidate(i_cache_invalidate),
-    .clear_complete(),
+  cache icache (
+      .clock(sys_clk),
+      .reset(sys_rst),
 
-    .cu_we  (1'b0),
-    .cu_re  (i_cache_re),
-    .cu_addr(i_cache_addr),
-    .cu_be  (4'b1111),
-    .cu_data_i(32'b0),
-    .cu_ack (i_cache_ack),
-    .cu_data_o(i_cache_data),
+      .bypass(i_cache_bypass),
+      .flush(1'b0),
+      .invalidate(i_cache_invalidate),
+      .clear_complete(),
 
-    .dau_we  (),
-    .dau_re  (dau_instr_re),
-    .dau_addr(dau_instr_addr),
-    .dau_be  (),
-    .dau_data_o(),
-    .dau_ack (dau_instr_ack),
-    .dau_data_i(dau_instr_data)
+      .cu_we(1'b0),
+      .cu_re(i_cache_re),
+      .cu_addr(i_cache_addr),
+      .cu_be(4'b1111),
+      .cu_data_i(32'b0),
+      .cu_ack(i_cache_ack),
+      .cu_data_o(i_cache_data),
+
+      .dau_we(),
+      .dau_re(dau_instr_re),
+      .dau_addr(dau_instr_addr),
+      .dau_be(),
+      .dau_data_o(),
+      .dau_ack(dau_instr_ack),
+      .dau_data_i(dau_instr_data)
   );
 
-  cache dcache(
-    .clock(sys_clk),
-    .reset(sys_rst),
+  cache dcache (
+      .clock(sys_clk),
+      .reset(sys_rst),
 
-    .bypass(d_cache_bypass), /* Hardwire to 1 if you want to explicitly disable D-cache. */
-    .flush(d_cache_clear), 
-    .invalidate(1'b0),
-    .clear_complete(d_cache_clear_complete),
+      .bypass(/*d_cache_bypass*/1), /* Hardwire to 1 if you want to explicitly disable D-cache. */
+      .flush(d_cache_clear),
+      .invalidate(1'b0),
+      .clear_complete(d_cache_clear_complete),
 
-    // TO CU.
-    .cu_we  (d_cache_we),
-    .cu_re  (d_cache_re),
-    .cu_addr(d_cache_addr),
-    .cu_be  (d_cache_be),
-    .cu_data_i(d_cache_data_departure),
-    .cu_ack (d_cache_ack),
-    .cu_data_o(d_cache_data_arrival),
-    // TO DAU
-    .dau_we  (dau_we),
-    .dau_re  (dau_re),
-    .dau_addr(dau_addr),
-    .dau_be  (dau_byte_en),
-    .dau_data_o(dau_data_write),
-    .dau_ack (dau_ack),
-    .dau_data_i(dau_data_read)
+      // TO CU.
+      .cu_we(d_cache_we),
+      .cu_re(d_cache_re),
+      .cu_addr(d_cache_addr),
+      .cu_be(d_cache_be),
+      .cu_data_i(d_cache_data_departure),
+      .cu_ack(d_cache_ack),
+      .cu_data_o(d_cache_data_arrival),
+      // TO DAU
+      .dau_we(dau_we),
+      .dau_re(dau_re),
+      .dau_addr(dau_addr),
+      .dau_be(dau_byte_en),
+      .dau_data_o(dau_data_write),
+      .dau_ack(dau_ack),
+      .dau_data_i(dau_data_read)
   );
 
-  dau_unified dau(
-    .sys_clk(sys_clk),
-    .sys_rst(sys_rst),
+  dau_unified dau (
+      .sys_clk(sys_clk),
+      .sys_rst(sys_rst),
 
-    .instr_re_i  (dau_instr_re  ),
-    .instr_addr_i(dau_instr_addr),
-    .instr_data_o(dau_instr_data),
-    .instr_ack_o (dau_instr_ack ),
+      .instr_re_i  (dau_instr_re),
+      .instr_addr_i(dau_instr_addr),
+      .instr_data_o(dau_instr_data),
+      .instr_ack_o (dau_instr_ack),
 
-    .we_i   (dau_we        ),
-    .re_i   (dau_re        ),
-    .addr_i (dau_addr      ),
-    .byte_en(dau_byte_en   ),
-    .data_i (dau_data_write),
-    .data_o (dau_data_read ),
-    .ack_o  (dau_ack       ),
+      .we_i   (dau_we),
+      .re_i   (dau_re),
+      .addr_i (dau_addr),
+      .byte_en(dau_byte_en),
+      .data_i (dau_data_write),
+      .data_o (dau_data_read),
+      .ack_o  (dau_ack),
 
-    .base_ram_data(base_ram_data),
-    .base_ram_addr(base_ram_addr),
-    .base_ram_be_n(base_ram_be_n),
-    .base_ram_ce_n(base_ram_ce_n),
-    .base_ram_oe_n(base_ram_oe_n),
-    .base_ram_we_n(base_ram_we_n),
+      .base_ram_data(base_ram_data),
+      .base_ram_addr(base_ram_addr),
+      .base_ram_be_n(base_ram_be_n),
+      .base_ram_ce_n(base_ram_ce_n),
+      .base_ram_oe_n(base_ram_oe_n),
+      .base_ram_we_n(base_ram_we_n),
 
-    .ext_ram_data(ext_ram_data),
-    .ext_ram_addr(ext_ram_addr),
-    .ext_ram_be_n(ext_ram_be_n),
-    .ext_ram_ce_n(ext_ram_ce_n),
-    .ext_ram_oe_n(ext_ram_oe_n),
-    .ext_ram_we_n(ext_ram_we_n),
+      .ext_ram_data(ext_ram_data),
+      .ext_ram_addr(ext_ram_addr),
+      .ext_ram_be_n(ext_ram_be_n),
+      .ext_ram_ce_n(ext_ram_ce_n),
+      .ext_ram_oe_n(ext_ram_oe_n),
+      .ext_ram_we_n(ext_ram_we_n),
 
-    .rxd(rxd),
-    .txd(txd),
+      .rxd(rxd),
+      .txd(txd),
 
-    .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
-    .flash_d(flash_d),  // Flash 数据
-    .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
-    .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
-    .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
-    .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
-    .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
-    .flash_byte_n(flash_byte_n), // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
+      .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
+      .flash_d(flash_d),  // Flash 数据
+      .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
+      .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
+      .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
+      .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
+      .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
+      .flash_byte_n(flash_byte_n), // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
 
-    .local_intr(local_intr)
+      .local_intr(local_intr)
   );
 
-  register_file registers(
-    .clock(sys_clk),
-    .reset(sys_rst),
+  register_file registers (
+      .clock(sys_clk),
+      .reset(sys_rst),
 
-    .read_addr1(rf_raddr1),
-    .read_data1(rf_rdata1),
+      .read_addr1(rf_raddr1),
+      .read_data1(rf_rdata1),
 
-    .read_addr2(rf_raddr2),
-    .read_data2(rf_rdata2),
+      .read_addr2(rf_raddr2),
+      .read_data2(rf_rdata2),
 
-    .we        (rf_we   ),
-    .write_addr(rf_waddr),
-    .write_data(rf_wdata)
+      .we        (rf_we),
+      .write_addr(rf_waddr),
+      .write_data(rf_wdata)
   );
   defparam registers.WIDTH = 32;
 
-  riscv_alu ralu(
-    .opcode(alu_opcode),
-    .in_1  (alu_in1),
-    .in_2  (alu_in2),
-    .out   (alu_out)
+  riscv_alu ralu (
+      .opcode(alu_opcode),
+      .in_1  (alu_in1),
+      .in_2  (alu_in2),
+      .out   (alu_out)
   );
-  
+
   // debouncer deb( 
   //   .CLOCK(sys_clk), 
   //   .RESET(sys_rst), 
@@ -295,54 +295,54 @@ module thinpad_top (
   //   .PULSE_OUT(step)
   // );
   wire [31:0] debug_ip;
-  cu_pipeline control_unit(
-    .clk(sys_clk),
-    .rst(sys_rst),
-    
-    .dau_instr_re_o  (i_cache_re),
-    .dau_instr_addr_o(i_cache_addr),
-    .dau_instr_ack_i (i_cache_ack),
-    .dau_instr_data_i(i_cache_data),
-    .dau_instr_bypass_o(i_cache_bypass),
-    .dau_instr_cache_invalidate(i_cache_invalidate),
+  cu_pipeline control_unit (
+      .clk(sys_clk),
+      .rst(sys_rst),
 
-    .dau_we_o   (d_cache_we),
-    .dau_re_o   (d_cache_re),
-    .dau_addr_o (d_cache_addr),
-    .dau_byte_en(d_cache_be),
-    .dau_data_i (d_cache_data_arrival),
-    .dau_data_o (d_cache_data_departure),
-    .dau_ack_i  (d_cache_ack),
+      .dau_instr_re_o(i_cache_re),
+      .dau_instr_addr_o(i_cache_addr),
+      .dau_instr_ack_i(i_cache_ack),
+      .dau_instr_data_i(i_cache_data),
+      .dau_instr_bypass_o(i_cache_bypass),
+      .dau_instr_cache_invalidate(i_cache_invalidate),
 
-    .dau_bypass_o(d_cache_bypass), 
-    .dau_cache_clear(d_cache_clear),
-    .dau_cache_clear_complete(d_cache_clear_complete),
+      .dau_we_o   (d_cache_we),
+      .dau_re_o   (d_cache_re),
+      .dau_addr_o (d_cache_addr),
+      .dau_byte_en(d_cache_be),
+      .dau_data_i (d_cache_data_arrival),
+      .dau_data_o (d_cache_data_departure),
+      .dau_ack_i  (d_cache_ack),
 
-    .rf_raddr1(rf_raddr1),
-    .rf_rdata1(rf_rdata1),
+      .dau_bypass_o(d_cache_bypass),
+      .dau_cache_clear(d_cache_clear),
+      .dau_cache_clear_complete(d_cache_clear_complete),
 
-    .rf_raddr2(rf_raddr2),
-    .rf_rdata2(rf_rdata2),
+      .rf_raddr1(rf_raddr1),
+      .rf_rdata1(rf_rdata1),
 
-    .rf_waddr(rf_waddr),
-    .rf_wdata(rf_wdata),
-    .rf_we   (rf_we   ),
+      .rf_raddr2(rf_raddr2),
+      .rf_rdata2(rf_rdata2),
 
-    .alu_opcode(alu_opcode),
-    .alu_in1   (alu_in1   ),
-    .alu_in2   (alu_in2   ),
-    .alu_out   (alu_out   ),
+      .rf_waddr(rf_waddr),
+      .rf_wdata(rf_wdata),
+      .rf_we   (rf_we   ),
 
-    .step(step),
-    .dip_sw(dip_sw),
-    .touch_btn(touch_btn),
-    .dpy0(dpy0),
-    .dpy1(dpy1),
-    .leds(leds),
-    //.curr_ip_out(debug_ip),
+      .alu_opcode(alu_opcode),
+      .alu_in1   (alu_in1   ),
+      .alu_in2   (alu_in2   ),
+      .alu_out   (alu_out   ),
 
-    .local_intr(local_intr),
-    .mtime(dau.clint.mtime)
+      .step(step),
+      .dip_sw(dip_sw),
+      .touch_btn(touch_btn),
+      .dpy0(dpy0),
+      .dpy1(dpy1),
+      .leds(leds),
+      //.curr_ip_out(debug_ip),
+
+      .local_intr(local_intr),
+      .mtime(dau.clint.mtime)
   );
 
 
