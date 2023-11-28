@@ -6,12 +6,8 @@ module next_instr_ptr (
     input  wire [31:0] curr_ip,
     input  wire [31:0] curr_instr,
     output reg  [31:0] next_ip_pred,
-    output reg         jump_pred,     // Whether branching is chosen for prediction
+    output reg         jump_pred      // Whether branching is chosen for prediction
 
-    input wire insert_entry,
-    input wire jump,
-    input wire [31:0] source_ip,
-    input wire [31:0] target_ip
 );
 
   parameter BRANCH = 32'b????_????_????_????_????_????_?110_0011;
@@ -72,9 +68,20 @@ module next_instr_ptr (
       end
     endcase
   end
+endmodule
 
+module dyn_pc_pred (
+    input wire clock,
+    input wire reset,
 
+    input wire insert_entry,
+    input wire needs_jump,
+    input wire [31:0] source_pc,
+    input wire [31:0] target_pc,
 
+    input  wire [31:0] query_pc,
+    output wire [31:0] pred_pc
+);
   typedef struct packed {
     reg        valid;
     reg [28:0] tag;
@@ -85,25 +92,44 @@ module next_instr_ptr (
 
   way_t [7:0][3:0] entries;
 
-  wire [2:0] entry_index = source_ip[4:2];
-  wire [28:0] entry_tag = {source_ip[31:5], source_ip[1:0]};
+  wire [2:0] source_index = source_pc[4:2];
+  wire [28:0] source_tag = {source_pc[31:5], source_pc[1:0]};
 
   reg [1:0] lru_replace_idx;
 
+  reg source_hit;
+  reg [1:0] source_hit_way;
+  reg [1:0] source_hit_bh;
 
 
-
+  wire [2:0] query_index = query_pc[4:2];
+  wire [28:0] query_tag = {query_pc[31:5], query_pc[1:0]};
+  reg query_hit;
+  reg [1:0] query_hit_way;
+  reg [31:0] query_target_c;
   // Choose the line to be replaced.
   always_comb begin
     for (int i_way = 0; i_way < 4; ++i_way) begin
-      if (entries[entry_index][i_way].lru_priority == 2'b0) begin
+      if (entries[source_index][i_way].lru_priority == 2'b0) begin
         lru_replace_idx = i_way;
         break;
       end
     end
   end
-
-  always_ff @(posedge clock or posedge reset) begin
+  always_comb begin
+    source_hit_way = 0;
+    source_hit = 1'b0;
+    source_hit_bh = 2'b0;
+    for (int i_way = 0; i_way < 4; ++i_way) begin
+      if (entries[source_index][i_way].valid && query_tag == entries[source_index][i_way].tag) begin
+        source_hit = 1'b1;
+        source_hit_way = i_way;
+        source_hit_bh = entries[source_index][i_way].bh;
+        break;
+      end
+    end
+  end
+  always_ff @(posedge clock  /* or posedge reset */) begin
     if (reset) begin
       for (int i_set = 0; i_set < 8; ++i_set) begin
         for (int i_way = 0; i_way < 4; ++i_way) begin
@@ -115,11 +141,62 @@ module next_instr_ptr (
         end
       end
     end else begin
+      if (insert_entry) begin
+        if (source_hit) begin
+          // for (int i = 0; i < 4; ++i) begin
+          //   // note that for the zero entry, minus one means wrap back.
+          //   if(entries[source_index][source_hit_way].lru_priority < entries[source_index][i].lru_priority)
+          //     entries[source_index][i].lru_priority <= entries[source_index][i].lru_priority - 2'b1;
+          // end
+          entries[source_index][source_hit_way].target <= target_pc;
+          if (needs_jump) begin
+            if (entries[source_index][lru_replace_idx].bh == 2'b0)
+              entries[source_index][lru_replace_idx].bh <= 2'b1;
+            else entries[source_index][lru_replace_idx].bh <= 2'b11;
+          end else begin
+            if (entries[source_index][lru_replace_idx].bh == 2'b11)
+              entries[source_index][lru_replace_idx].bh <= 2'b10;
+            else entries[source_index][lru_replace_idx].bh <= 2'b0;
+          end
+        end else begin
+          // for (int i = 0; i < 4; ++i) begin
+          //   // note that for the zero entry, minus one means wrap back.
+          //   entries[source_index][i].lru_priority <= entries[source_index][i].lru_priority - 2'b1;
+          // end
+          entries[source_index][lru_replace_idx].valid <= 1'b1;
+          entries[source_index][lru_replace_idx].tag <= source_tag;
+          entries[source_index][lru_replace_idx].bh <= {1'b0, needs_jump} + 2'b1;
+          entries[source_index][lru_replace_idx].target <= target_pc;
+        end
+      end
 
+      if (query_hit) begin
+        for (int j = 0; j < 4; ++j) begin
+          if(entries[query_index][query_hit_way].lru_priority < entries[query_index][j].lru_priority)
+            entries[query_index][j].lru_priority <= entries[query_index][j].lru_priority - 2'b1;
+        end
+        entries[query_index][query_hit_way].lru_priority <= 2'b11;
+      end
     end
   end
 
 
+  always_comb begin
+    query_target_c = query_pc + 32'd4;
+    query_hit = 1'b0;
+    query_hit_way = 2'b0;
+    for (int i_way = 0; i_way < 4; ++i_way) begin
+      if (entries[query_index][i_way].valid && query_tag == entries[query_index][i_way].tag) begin
+        query_hit = 1'b1;
+        query_hit_way = i_way;
+        if (entries[query_index][i_way].bh >= 2'd2) begin
+          query_target_c = entries[query_index][i_way].target;
+        end
+        break;
+      end
+    end
+  end
+  assign pred_pc = query_target_c;
 endmodule
 
 module ip_mux (

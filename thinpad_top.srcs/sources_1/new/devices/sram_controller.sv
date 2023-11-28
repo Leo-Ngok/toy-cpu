@@ -64,7 +64,7 @@ module sram_controller_fast #(
       end
     endcase
   end
-  always_ff @(posedge clk_i or posedge rst_i) begin
+  always_ff @(posedge clk_i  /* or posedge rst_i */) begin
     if (rst_i) begin
       state_curr <= SRAM_IDLE;
     end else begin
@@ -72,7 +72,7 @@ module sram_controller_fast #(
     end
   end
 
-  always_ff @(posedge clk_i or posedge rst_i) begin
+  always_ff @(posedge clk_i  /* or posedge rst_i */) begin
     if (rst_i) begin
       sram_output_buf <= 32'b0;
       address_in_wait <= 32'b0;

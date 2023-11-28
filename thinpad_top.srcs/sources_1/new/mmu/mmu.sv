@@ -45,7 +45,7 @@ module mmu (
   state_t mmu_state;
   state_t next_state;
 
-  always_ff @(posedge clock or posedge reset) begin
+  always_ff @(posedge clock  /* or posedge reset */) begin
     if (reset) begin
       mmu_state <= WAIT;
     end else begin
@@ -259,7 +259,7 @@ module mmu (
     endcase
   end
 
-  always_ff @(posedge clock or posedge reset) begin
+  always_ff @(posedge clock  /* or posedge reset */) begin
     if (reset) begin
       data_page_pte_reg <= 32'b0;
       second_page_pte_reg <= 32'b0;

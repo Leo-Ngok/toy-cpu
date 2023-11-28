@@ -107,7 +107,7 @@ module flash_controller #(
 
   flash_state_t state, state_n;
 
-  always_ff @(posedge clk_i or posedge rst_i) begin
+  always_ff @(posedge clk_i  /* or posedge rst_i */) begin
     if (rst_i) begin
       state <= INIT;
     end else begin
@@ -325,7 +325,7 @@ module flash_controller #(
   reg flash_we_n_o_r;
   reg flash_oe_n_o_r;
 
-  always_ff @(posedge clk_i or posedge rst_i) begin
+  always_ff @(posedge clk_i  /* or posedge rst_i */) begin
     if (rst_i) begin
       flash_we_n_o_r <= 1'b1;
       flash_oe_n_o_r <= 1'b1;
@@ -564,7 +564,7 @@ module flash_controller #(
 
   reg [31:0] wb_dat_o_c;
   reg wb_ack_o_r;
-  always_ff @(posedge clk_i or posedge rst_i) begin
+  always_ff @(posedge clk_i  /* or posedge rst_i */) begin
     if (rst_i) begin
       wb_ack_o_r <= 0;
     end else begin
@@ -572,7 +572,7 @@ module flash_controller #(
       else if (wb_cyc_i && wb_stb_i) wb_ack_o_r <= 1;
     end
   end
-  always_ff @(posedge clk_i or posedge rst_i) begin
+  always_ff @(posedge clk_i  /* or posedge rst_i */) begin
     if (rst_i) begin
       block_id <= 0;
       write_block_values <= '0;
@@ -580,10 +580,10 @@ module flash_controller #(
     end else begin
       if (wb_cyc_i && wb_stb_i) begin
         if (wb_we_i) begin
-          if (wb_adr_i == 1024 && wb_sel_i == 4'd3) begin
+          if (wb_adr_i[10:0] == 11'd1024 && wb_sel_i == 4'd3) begin
             // specify block id, and start reading/writing block.
             block_id <= wb_dat_i[15:0];
-          end else if (32'd512 <= wb_adr_i && wb_adr_i < 32'd1024) begin
+          end else if (11'd512 <= wb_adr_i[10:0] && wb_adr_i[10:0] < 11'd1024) begin
             // buffer write block data.
             if (wb_sel_i[0]) write_block_values[wb_adr_i[8:2]][7:0] <= wb_dat_i[7:0];
             if (wb_sel_i[1]) write_block_values[wb_adr_i[8:2]][15:8] <= wb_dat_i[15:8];
@@ -591,13 +591,13 @@ module flash_controller #(
             if (wb_sel_i[3]) write_block_values[wb_adr_i[8:2]][31:24] <= wb_dat_i[31:24];
           end
         end else begin
-          if (32'd0 <= wb_adr_i && wb_adr_i < 32'd512) begin
+          if (11'd0 <= wb_adr_i[10:0] && wb_adr_i[10:0] < 11'd512) begin
             // quest for read data.
             wb_dat_o_c[7:0]   <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][7:0] : 8'b0;
             wb_dat_o_c[15:8]  <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][15:8] : 8'b0;
             wb_dat_o_c[23:16] <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][23:16] : 8'b0;
             wb_dat_o_c[31:24] <= (wb_sel_i[0]) ? read_block_values[wb_adr_i[8:2]][31:24] : 8'b0;
-          end else if (wb_adr_i == 1028) begin
+          end else if (wb_adr_i[10:0] == 11'd1028) begin
             wb_dat_o_c <= {30'b0, write_ready, read_ready};
           end
         end
@@ -616,7 +616,7 @@ module flash_controller #(
   assign write_ready = state == WAIT;
 
   assign wb_dat_o = wb_dat_o_c;
-  assign wb_ack_o = wb_ack_o_r && (0 <= wb_adr_i && wb_adr_i <= 1025);
+  assign wb_ack_o = wb_ack_o_r && (11'd0 <= wb_adr_i[10:0] && wb_adr_i[10:0] < 11'd1032);
 endmodule
 
 

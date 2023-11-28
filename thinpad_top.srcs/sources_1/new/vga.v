@@ -35,7 +35,7 @@ module vga #(
 );
 
   // hdata
-  always @(posedge clk or posedge rst) begin
+  always @(posedge clk /* or posedge rst */) begin
     if(rst) begin
       hdata <= 0;
     end else begin
@@ -45,7 +45,7 @@ module vga #(
   end
 
   // vdata
-  always @(posedge clk or posedge rst) begin
+  always @(posedge clk /* or posedge rst */) begin
     if(rst)begin
       vdata <= 0;
     end else begin

@@ -61,6 +61,7 @@ module cu_pipeline (
 
   wire        jump_pred;
   wire [31:0] next_ip_pred;
+  wire [31:0] if_alt_next_ip;
   wire [31:0] next_ip;
   wire        if_mmu_ack;
   wire [31:0] if_mmu_data_arrival;
@@ -75,7 +76,7 @@ module cu_pipeline (
   wire [31:0] id_ip;
   wire        id_jump_pred;
   wire [31:0] id_pred_pc;
-
+  wire [31:0] id_alt_next_ip;
   // Intra stage signals.
   wire [ 4:0] decoder_raddr1;
   wire [ 4:0] decoder_raddr2;
@@ -91,14 +92,18 @@ module cu_pipeline (
 
   wire [31:0] id_mux_alu_op1;
   wire [31:0] id_mux_alu_op2;
+  wire [31:0] decoder_imm;
   // ========================================== ALU ==========================================
   // From ID stage
   wire [31:0] alu_ip;
   wire        alu_jump_pred;
   wire [31:0] alu_instr;
+  wire [31:0] ex_pred_pc;
+  wire [31:0] alu_alt_ip_pred;
 
   wire [31:0] alu_op1;
   wire [31:0] alu_op2;
+  wire [31:0] ex_imm;
 
   wire        alu_mwe;
   wire        alu_mre;
@@ -116,10 +121,17 @@ module cu_pipeline (
   // Intra stage signals (actually, {take|new} ip forwards to pre if).
   wire        alu_take_ip;
   wire [31:0] alu_new_ip;
+  wire        alu_is_jump;
 
   wire [31:0] alu_mwdata_adjusted;
   wire [ 3:0] alu_mbe_adjusted;
   wire [31:0] alu_wbdata_adjusted;
+
+  wire        alu_is_jump_alt;
+  wire        alu_take_ip_alt;
+  wire [31:0] alu_new_ip_alt;
+  wire        alu_dyn_take_ip;
+  wire [31:0] alu_dyn_new_ip;
   // ========================================== MEM ==========================================
   // From ALU stage
   wire [31:0] mem_instr;
@@ -244,15 +256,25 @@ module cu_pipeline (
       .jump_pred(jump_pred)
   );
 
+  dyn_pc_pred new_ip_pred (
+      .clock(clk),
+      .reset(rst),
+      .insert_entry(alu_dyn_take_ip),
+      .needs_jump(alu_is_jump_alt),
+      .source_pc(alu_ip),
+      .target_pc(alu_dyn_new_ip),
+      .query_pc(if0_ip),
+      .pred_pc(if_alt_next_ip)
+  );
   ip_mux ip_sel (
       .mem_modif(dau_cache_clear_complete),
       .csr_modif(mem_csr_take_ip),
-      .alu_modif(alu_take_ip),
+      .alu_modif(  /*alu_take_ip*/ alu_dyn_take_ip),
 
       .mem_ip (mem_ip),
       .csr_ip (mem_csr_new_ip),
-      .alu_ip (alu_new_ip),
-      .pred_ip(next_ip_pred),
+      .alu_ip (  /*alu_new_ip*/ alu_dyn_new_ip),
+      .pred_ip(  /*next_ip_pred*/ if_alt_next_ip),
 
       .res_ip(next_ip)
   );
@@ -271,7 +293,8 @@ module cu_pipeline (
       .csr_acc(decoder_csracc),
 
       .clear_icache(decoder_clear_icache),
-      .clear_tlb(decoder_clear_tlb)
+      .clear_tlb(decoder_clear_tlb),
+      .immgen(decoder_imm)
   );
 
   instr_mux comb_instr_mux (
@@ -307,7 +330,29 @@ module cu_pipeline (
       .has_pred_jump(alu_jump_pred),
       .curr_ip(alu_ip),
       .take_ip(alu_take_ip),
-      .new_ip(alu_new_ip)
+      .new_ip(alu_new_ip),
+
+      .pred_pc(ex_pred_pc),
+      .op1(alu_op1),
+      .op2(alu_op2),
+      .offset(ex_imm),
+      .is_jump(alu_is_jump)
+  );
+  adjust_ip new_pred_corr (
+      .instr(alu_instr),
+      .cmp_res(alu_out),
+      .has_pred_jump(alu_jump_pred),
+      .curr_ip(alu_ip),
+      .take_ip(alu_take_ip_alt),
+      .new_ip(alu_new_ip_alt),
+
+      .pred_pc(alu_alt_ip_pred),
+      .op1(alu_op1),
+      .op2(alu_op2),
+      .offset(ex_imm),
+      .is_jump(alu_is_jump_alt),
+      .dyn_take_ip(alu_dyn_take_ip),
+      .dyn_new_ip(alu_dyn_new_ip)
   );
   mem_data_offset_adjust mem_write_adjust (
       .mem_we(alu_mwe),
@@ -471,8 +516,8 @@ module cu_pipeline (
       .alu_ip(alu_ip),
       .alu_instr(alu_instr),
       .alu_waddr(alu_wbaddr),
-      .alu_take_ip(alu_take_ip),
-      .alu_new_ip(alu_new_ip),
+      .alu_take_ip(  /*alu_take_ip*/ alu_dyn_take_ip),
+      .alu_new_ip(  /*alu_new_ip*/ alu_dyn_new_ip),
 
       .mem_ip(mem_ip),
       .mem_instr(mem_instr),
@@ -547,8 +592,10 @@ module cu_pipeline (
       .id_instr_addr_misaligned(id_instr_addr_misaligned),
 
       .if_no_exec_access(if_id_no_exec_access),
-      .id_instr_no_exec_access(id_instr_no_exec_access)
+      .id_instr_no_exec_access(id_instr_no_exec_access),
 
+      .if_alt_next_ip(if_alt_next_ip),
+      .id_alt_next_ip(id_alt_next_ip)
   );
 
   id_ex ppl_id_ex (
@@ -567,7 +614,7 @@ module cu_pipeline (
       .ex_jump_pred(alu_jump_pred),
 
       .id_pred_pc(id_pred_pc),
-      .ex_pred_pc(),
+      .ex_pred_pc(ex_pred_pc),
 
       .id_instr(id_instr),
       .ex_instr(alu_instr),
@@ -575,11 +622,11 @@ module cu_pipeline (
       // Prepare for what ALU need.
       .id_op1(id_mux_alu_op1),
       .id_op2(id_mux_alu_op2),
-      .id_imm(32'b0),
+      .id_imm(decoder_imm),
 
       .ex_op1(alu_op1),
       .ex_op2(alu_op2),
-      .ex_imm(),
+      .ex_imm(ex_imm),
 
       .id_mre(decoder_mre),
       .ex_mre(alu_mre),
@@ -618,7 +665,10 @@ module cu_pipeline (
       .id_wraddr(decoder_waddr),
       .ex_wraddr(alu_wbaddr),
 
-      .bubble_ip(id_alu_flush_ip)
+      .bubble_ip(id_alu_flush_ip),
+
+      .id_alt_next_ip(id_alt_next_ip),
+      .ex_alt_next_ip(alu_alt_ip_pred)
   );
 
   ex_mem ppl_ex_mem (
@@ -889,13 +939,10 @@ module cu_orchestra (
     if (mem_wait_req) begin
       mem_wb_ip = mem_ip;
     end
-
-    alu_mem_stall  = (!mem_take_ip) && (mem_wb_stall || mem_wait_req);
-    alu_mem_bubble = mem_take_ip || ((!alu_mem_stall) && alu_wait_req);
-    // XXX
-    alu_mem_stall  = pause_global || alu_mem_stall;
-    alu_mem_bubble = alu_mem_bubble & ~pause_global;
-
+    alu_mem_stall  = mem_wb_stall || mem_wait_req;
+    // alu_mem_stall  = (!mem_take_ip) && (mem_wb_stall || mem_wait_req);
+    // alu_mem_bubble = mem_take_ip || ((!alu_mem_stall) && alu_wait_req);
+    alu_mem_bubble = (!alu_mem_stall) && (mem_take_ip || alu_wait_req);
     if (csr_take_ip) begin
       alu_mem_ip = csr_new_ip;
     end else if (mem_flush_take_ip) begin
@@ -903,13 +950,13 @@ module cu_orchestra (
     end else if ((!alu_mem_stall) && alu_wait_req) begin
       alu_mem_ip = alu_ip;  // Trivial case, ignore afterwards.
     end
-
-    id_alu_stall = (! (mem_take_ip || alu_take_ip)) && (alu_wait_req || (alu_mem_stall /*&& mem_instr != NOP*/) );
-    id_alu_bubble = mem_take_ip || alu_take_ip || (!id_alu_stall && id_wait_req);
-
+    id_alu_stall  = (!mem_take_ip) && (alu_mem_stall || alu_wait_req);
+    // id_alu_stall = (! (mem_take_ip || alu_take_ip)) && (alu_wait_req || (alu_mem_stall /*&& mem_instr != NOP*/) );
+    // id_alu_bubble = mem_take_ip || alu_take_ip || (!id_alu_stall && id_wait_req);
+    id_alu_bubble = mem_take_ip || (!id_alu_stall && (alu_take_ip || id_wait_req));
     // XXX
-    id_alu_stall = id_alu_stall || pause_global;
-    id_alu_bubble = id_alu_bubble & ~pause_global;
+    // id_alu_stall = id_alu_stall || pause_global;
+    // id_alu_bubble = id_alu_bubble & ~pause_global;
 
     if (csr_take_ip) begin
       id_alu_ip = csr_new_ip;
@@ -920,11 +967,11 @@ module cu_orchestra (
     end
 
     if_id_stall = (! (mem_take_ip || alu_take_ip)) && (id_wait_req || (id_alu_stall /*&& alu_instr != NOP*/) );
-    if_id_bubble = mem_take_ip || alu_take_ip || (!if_id_stall && if_wait_req);
+    if_id_bubble = (mem_take_ip || alu_take_ip) || (!if_id_stall && if_wait_req);
 
     // XXX
-    if_id_stall = if_id_stall || pause_global;
-    if_id_bubble = if_id_bubble & ~pause_global;
+    // if_id_stall = if_id_stall || pause_global;
+    // if_id_bubble = if_id_bubble & ~pause_global;
 
     if (csr_take_ip) begin
       if_id_ip = csr_new_ip;
@@ -934,10 +981,10 @@ module cu_orchestra (
       if_id_ip = alu_new_ip;
     end
 
-    pre_if_stall = (!(mem_take_ip || alu_take_ip)) && if_id_stall;
+    pre_if_stall = (!(mem_take_ip || alu_take_ip)) && (if_wait_req || if_id_stall);
 
     // XXX
-    pre_if_stall = pre_if_stall || pause_global;
+    // pre_if_stall = pre_if_stall || pause_global;
     if (if_mmu_error) begin
       if_id_page_fault = if_page_fault;
       if_id_no_exec_access = if_no_exec_access;

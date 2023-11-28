@@ -95,7 +95,10 @@ module if_id (
     output reg  id_instr_addr_misaligned,
 
     input  wire if_no_exec_access,
-    output reg  id_instr_no_exec_access
+    output reg  id_instr_no_exec_access,
+
+    input  wire [31:0] if_alt_next_ip,
+    output reg  [31:0] id_alt_next_ip
 );
   always_ff @(posedge clock  /* or posedge reset */) begin
     if (reset) begin
@@ -107,6 +110,7 @@ module if_id (
       id_instr_page_fault <= 1'b0;
       id_instr_addr_misaligned <= 1'b0;
       id_instr_no_exec_access <= 1'b0;
+      id_alt_next_ip <= `START_ADDR + 32'd4;
     end else begin
       // error <= stall && bubble;
       if (bubble) begin
@@ -117,7 +121,7 @@ module if_id (
         id_instr_page_fault      <= if_page_fault;
         id_instr_addr_misaligned <= if_addr_misaligned;
         id_instr_no_exec_access  <= if_no_exec_access;
-
+        id_alt_next_ip           <= bubble_ip + 4;
       end else if (!stall) begin
         id_ip                    <= if_ip;
         id_jump_pred             <= if_jump_pred;
@@ -126,6 +130,7 @@ module if_id (
         id_instr_page_fault      <= 1'b0;
         id_instr_addr_misaligned <= 1'b0;
         id_instr_no_exec_access  <= 1'b0;
+        id_alt_next_ip           <= if_alt_next_ip;
       end
     end
   end
@@ -208,14 +213,17 @@ module id_ex (
     input  wire [4:0] id_wraddr,
     output reg  [4:0] ex_wraddr,
 
-    input wire [31:0] bubble_ip
+    input wire [31:0] bubble_ip,
+
+    input  wire [31:0] id_alt_next_ip,
+    output reg  [31:0] ex_alt_next_ip
 );
 
   always_ff @(posedge clock  /* or posedge reset */) begin
     if (reset) begin
       // 0. Control
       ex_ip                    <= `START_ADDR;
-      ex_pred_pc               <= `START_ADDR;
+      ex_pred_pc               <= `START_ADDR + 32'd4;
       ex_jump_pred             <= 1'b0;
       ex_instr                 <= `NOP;
 
@@ -244,6 +252,8 @@ module id_ex (
       ex_we                    <= 1'b1;  // NOP is addi x0,x0,0
       ex_wraddr                <= 5'b0;
       error                    <= 1'b0;
+
+      ex_alt_next_ip           <= `START_ADDR + 32'd4;
     end else begin
       // error <= stall && bubble;
       if (bubble) begin
@@ -279,7 +289,7 @@ module id_ex (
         // 3. Write back
         ex_we                    <= 1'b1;
         ex_wraddr                <= 5'b0;
-
+        ex_alt_next_ip           <= bubble_ip + 4;
       end else if (!stall) begin
         // 0. Control
         ex_ip                    <= id_ip;
@@ -312,6 +322,8 @@ module id_ex (
         // 3. Write back
         ex_we                    <= id_we;
         ex_wraddr                <= id_wraddr;
+
+        ex_alt_next_ip           <= id_alt_next_ip;
       end
     end
   end
