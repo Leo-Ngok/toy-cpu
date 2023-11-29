@@ -129,7 +129,7 @@ module dyn_pc_pred (
       end
     end
   end
-  always_ff @(posedge clock  /* or posedge reset */) begin
+  always_ff @(posedge clock) begin
     if (reset) begin
       for (int i_set = 0; i_set < 8; ++i_set) begin
         for (int i_way = 0; i_way < 4; ++i_way) begin

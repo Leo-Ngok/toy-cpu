@@ -1,4 +1,4 @@
-module block_ram_controller #(
+module display_controller #(
     parameter DATA_WIDTH = 32,
     parameter ADDR_WIDTH = 32
 ) (

@@ -924,7 +924,7 @@ module dau_unified (
       .intr(local_intr)
   );
 
-  block_ram_controller block_ram (
+  display_controller block_ram (
       .clk_i(sys_clk),
       .rst_i(sys_rst),
 

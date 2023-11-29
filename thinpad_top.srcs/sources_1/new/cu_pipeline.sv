@@ -1,25 +1,33 @@
-//`include "../pipeline/instr_decode.sv"
 module cu_pipeline (
-    input wire clk,
-    input wire rst,
-    input wire fast_clock,
-
-    // Device access unit
-    output wire        dau_instr_re_o,
-    output wire [31:0] dau_instr_addr_o,
-    input  wire [31:0] dau_instr_data_i,
-    input  wire        dau_instr_ack_i,
-    output wire        dau_instr_bypass_o,
-    output wire        dau_instr_cache_invalidate,
-
-    output wire        dau_we_o,
-    output wire        dau_re_o,
-    output wire [31:0] dau_addr_o,
-    output wire [ 3:0] dau_byte_en,
-    output wire [31:0] dau_data_o,
-    input  wire [31:0] dau_data_i,
-    input  wire        dau_ack_i,
-    output wire        dau_bypass_o,
+    input  wire        clk,
+    input  wire        rst,
+    input  wire        fast_clock,
+    // IMMU
+    output wire        immu_re_o,
+    output wire [31:0] immu_addr_o,
+    input  wire [31:0] immu_data_i,
+    input  wire        immu_ack_i,
+    // I-Cache
+    output wire        icache_re_o,
+    output wire [31:0] icache_addr_o,
+    input  wire [31:0] icache_data_i,
+    input  wire        icache_ack_i,
+    output wire        icache_bypass_o,
+    output wire        icache_cache_invalidate,
+    // DMMU
+    output wire        dmmu_re_o,
+    output wire [31:0] dmmu_addr_o,
+    input  wire [31:0] dmmu_data_i,
+    input  wire        dmmu_ack_i,
+    // D-Cache
+    output wire        dcache_we_o,
+    output wire        dcache_re_o,
+    output wire [31:0] dcache_addr_o,
+    output wire [ 3:0] dcache_byte_en,
+    output wire [31:0] dcache_data_o,
+    input  wire [31:0] dcache_data_i,
+    input  wire        dcache_ack_i,
+    output wire        dcache_bypass_o,
 
     output wire dau_cache_clear,
     input  wire dau_cache_clear_complete,
@@ -53,29 +61,30 @@ module cu_pipeline (
     input wire        local_intr,
     input wire [63:0] mtime
 );
-  parameter INSTR_BASE_ADDR = 32'h8000_0000;
   // ========================================== IF0 ==========================================
-  wire [31:0] if0_ip;
-  // ========================================== IF2 ==========================================
+  wire [31:0] next_ip;  // input to the prefetch pc register.
+  wire [31:0] if1_ip;
+  // ========================================== IF1 ==========================================
   wire [31:0] satp;
+  wire [31:0] if1_alt_next_ip;
+  wire        if1_mmu_ack;
+  wire [31:0] if1_mmu_pa;
 
-  wire        jump_pred;
-  wire [31:0] next_ip_pred;
-  wire [31:0] if_alt_next_ip;
-  wire [31:0] next_ip;
-  wire        if_mmu_ack;
-  wire [31:0] if_mmu_data_arrival;
-
-  wire        if_page_fault;
-  wire        if_addr_misaligned;
-  wire        if_no_exec_access;
-  wire        if_mmu_error;
+  wire        if1_page_fault;
+  wire        if1_addr_misaligned;
+  wire        if1_no_exec_access;
+  // ========================================== IF2 ==========================================
+  wire [31:0] if2_ip;
+  wire [31:0] if2_alt_next_ip;
+  wire [31:0] if2_ppc;
+  wire        if2_is_bubble;
+  wire        if2_page_fault;
+  wire        if2_addr_misaligned;
+  wire        if2_no_exec_access;
   // ========================================== ID ==========================================
   // From IF stage
   wire [31:0] id_instr;
   wire [31:0] id_ip;
-  wire        id_jump_pred;
-  wire [31:0] id_pred_pc;
   wire [31:0] id_alt_next_ip;
   // Intra stage signals.
   wire [ 4:0] decoder_raddr1;
@@ -96,9 +105,7 @@ module cu_pipeline (
   // ========================================== ALU ==========================================
   // From ID stage
   wire [31:0] alu_ip;
-  wire        alu_jump_pred;
   wire [31:0] alu_instr;
-  wire [31:0] ex_pred_pc;
   wire [31:0] alu_alt_ip_pred;
 
   wire [31:0] alu_op1;
@@ -128,8 +135,6 @@ module cu_pipeline (
   wire [31:0] alu_wbdata_adjusted;
 
   wire        alu_is_jump_alt;
-  wire        alu_take_ip_alt;
-  wire [31:0] alu_new_ip_alt;
   wire        alu_dyn_take_ip;
   wire [31:0] alu_dyn_new_ip;
   // ========================================== MEM ==========================================
@@ -188,6 +193,7 @@ module cu_pipeline (
   wire [31:0] wb_mrdata_adjusted;
   wire [31:0] wb_data;
   // Bubble case
+  wire [31:0] if1_if2_flush_ip;
   wire [31:0] if_id_flush_ip;
   wire [31:0] id_alu_flush_ip;
   wire [31:0] alu_mem_flush_ip;
@@ -209,51 +215,42 @@ module cu_pipeline (
   wire        mem_instr_page_fault;
   wire        mem_instr_addr_misaligned;
   wire        mem_instr_no_exec_access;
-  // ========================================== IF2 ==========================================
-  mmu instr_mm (
+  // ========================================== IF1 ==========================================
+  mmu_iter alt_instr_mm (
       .clock(clk),
       .reset(rst),
 
       .satp(satp),
-      .va  (if0_ip),
-      .pa  (dau_instr_addr_o),
+      .va  (if1_ip),
+      .pa  (immu_addr_o),
 
       .data_we_i(1'b0),
       .data_re_i(1'b1),
       .byte_en_i(4'b1111),
       .data_departure_i(32'b0),
-      .data_arrival_o(if_mmu_data_arrival),
-      .data_ack_o(if_mmu_ack),
+      .data_arrival_o(if1_mmu_pa),
+      .data_ack_o(if1_mmu_ack),
 
       .data_we_o(),
-      .data_re_o(dau_instr_re_o),
+      .data_re_o(immu_re_o),
       .byte_en_o(),
       .data_departure_o(),
-      .data_arrival_i(dau_instr_data_i),
-      .data_ack_i(dau_instr_ack_i),
+      .data_arrival_i(immu_data_i),
+      .data_ack_i(immu_ack_i),
 
-      .bypass(dau_instr_bypass_o),
+      .bypass(),
       .invalidate_tlb(mem_invalidate_tlb),
       .if_enable(1'b1),
       .priv(csr_inst.privilege),
       .sum(csr_inst.sum),
 
-      .page_fault(if_page_fault),
+      .page_fault(if1_page_fault),
       .no_read_access(),  // never
       .no_write_access(),  // never
-      .no_exec_access(if_no_exec_access),  // TODO
-      .addr_misaligned(if_addr_misaligned),
-      .mmu_error(if_mmu_error),
-
+      .no_exec_access(if1_no_exec_access),
+      .addr_misaligned(if1_addr_misaligned),
+      .mmu_error(),
       .pte_debug()
-  );
-
-  next_instr_ptr ip_predict (
-      .mem_ack(),
-      .curr_ip(if0_ip),
-      .curr_instr(if_mmu_data_arrival),
-      .next_ip_pred(next_ip_pred),
-      .jump_pred(jump_pred)
   );
 
   dyn_pc_pred new_ip_pred (
@@ -263,21 +260,27 @@ module cu_pipeline (
       .needs_jump(alu_is_jump_alt),
       .source_pc(alu_ip),
       .target_pc(alu_dyn_new_ip),
-      .query_pc(if0_ip),
-      .pred_pc(if_alt_next_ip)
+      .query_pc(if1_ip),
+      .pred_pc(if1_alt_next_ip)
   );
+
   ip_mux ip_sel (
       .mem_modif(dau_cache_clear_complete),
       .csr_modif(mem_csr_take_ip),
-      .alu_modif(  /*alu_take_ip*/ alu_dyn_take_ip),
+      .alu_modif(alu_dyn_take_ip),
 
       .mem_ip (mem_ip),
       .csr_ip (mem_csr_new_ip),
-      .alu_ip (  /*alu_new_ip*/ alu_dyn_new_ip),
-      .pred_ip(  /*next_ip_pred*/ if_alt_next_ip),
+      .alu_ip (alu_dyn_new_ip),
+      .pred_ip(if1_alt_next_ip),
 
       .res_ip(next_ip)
   );
+  // ========================================== IF2 ==========================================
+  assign icache_addr_o = if2_ppc;
+  assign icache_bypass_o = 0;
+  assign icache_re_o = !if2_is_bubble;
+
   // ========================================== ID ==========================================
   assign rf_raddr1 = decoder_raddr1;
   assign rf_raddr2 = decoder_raddr2;
@@ -324,27 +327,9 @@ module cu_pipeline (
   assign alu_in1 = alu_op1;
   assign alu_in2 = alu_op2;
 
-  adjust_ip ip_correction (
-      .instr(alu_instr),
-      .cmp_res(alu_out),
-      .has_pred_jump(alu_jump_pred),
-      .curr_ip(alu_ip),
-      .take_ip(alu_take_ip),
-      .new_ip(alu_new_ip),
-
-      .pred_pc(ex_pred_pc),
-      .op1(alu_op1),
-      .op2(alu_op2),
-      .offset(ex_imm),
-      .is_jump(alu_is_jump)
-  );
   adjust_ip new_pred_corr (
-      .instr(alu_instr),
-      .cmp_res(alu_out),
-      .has_pred_jump(alu_jump_pred),
+      .instr  (alu_instr),
       .curr_ip(alu_ip),
-      .take_ip(alu_take_ip_alt),
-      .new_ip(alu_new_ip_alt),
 
       .pred_pc(alu_alt_ip_pred),
       .op1(alu_op1),
@@ -373,7 +358,7 @@ module cu_pipeline (
   assign dau_cache_clear = mem_clear_icache || mem_clear_tlb;
   assign mem_invalidate_icache = dau_cache_clear_complete && mem_clear_icache;
   assign mem_invalidate_tlb = dau_cache_clear_complete && mem_clear_tlb;
-  assign dau_instr_cache_invalidate = mem_invalidate_icache;
+  assign icache_cache_invalidate = mem_invalidate_icache;
 
   rf_write_data_mux rf_wdata_mux (
       .rf_we  (mem_wbwe),
@@ -433,7 +418,7 @@ module cu_pipeline (
 
       .satp(satp),
       .va  (mem_addr),
-      .pa  (dau_addr_o),
+      .pa  (dcache_addr_o),
 
       .data_we_i(mem_mwe),
       .data_re_i(mem_mre),
@@ -442,14 +427,14 @@ module cu_pipeline (
       .data_arrival_o(mem_mmu_data_arrival),
       .data_ack_o(mem_mmu_ack),
 
-      .data_we_o(dau_we_o),
-      .data_re_o(dau_re_o),
-      .byte_en_o(dau_byte_en),
-      .data_departure_o(dau_data_o),
-      .data_arrival_i(dau_data_i),
-      .data_ack_i(dau_ack_i),
+      .data_we_o(dcache_we_o),
+      .data_re_o(dcache_re_o),
+      .byte_en_o(dcache_byte_en),
+      .data_departure_o(dcache_data_o),
+      .data_arrival_i(dcache_data_i),
+      .data_ack_i(dcache_ack_i),
 
-      .bypass(dau_bypass_o),
+      .bypass(dcache_bypass_o),
       .invalidate_tlb(mem_invalidate_tlb),
       .if_enable(1'b0),
       .priv(csr_inst.privilege),
@@ -464,6 +449,8 @@ module cu_pipeline (
 
       .pte_debug(pte_debug)
   );
+  assign dmmu_re_o = 0;
+  assign dmmu_addr_o = 32'b0;
   // ========================================== WB ==========================================
   assign rf_we    = wb_we;
   assign rf_waddr = wb_addr;
@@ -487,11 +474,13 @@ module cu_pipeline (
   );
 
   wire pre_if_stall;
+  wire if1_if2_stall;
   wire if_id_stall;
   wire id_ex_stall;
   wire ex_mem_stall;
   wire mem_wb_stall;
 
+  wire if1_if2_bubble;
   wire if_id_bubble;
   wire id_ex_bubble;
   wire ex_mem_bubble;
@@ -500,24 +489,21 @@ module cu_pipeline (
   wire debug_pause;
 
   cu_orchestra cu_control (
-      .if_ip(if0_ip),
-      .if_instr(if_mmu_data_arrival),
-      .if_ack(if_mmu_ack),
-      .if_page_fault(if_page_fault),
-      .if_addr_misaligned(if_addr_misaligned),
-      .if_no_exec_access(if_no_exec_access),
-      .if_mmu_error(if_mmu_error),
+      .if1_ip (if1_ip),
+      .if1_ack(if1_mmu_ack),
+
+      .if2_ip (if2_ip),
+      .if2_ack(if2_is_bubble || icache_ack_i),
 
       .id_ip(id_ip),
-      .id_instr(id_instr),
       .id_raddr1(decoder_raddr1),
       .id_raddr2(decoder_raddr2),
 
       .alu_ip(alu_ip),
       .alu_instr(alu_instr),
       .alu_waddr(alu_wbaddr),
-      .alu_take_ip(  /*alu_take_ip*/ alu_dyn_take_ip),
-      .alu_new_ip(  /*alu_new_ip*/ alu_dyn_new_ip),
+      .alu_take_ip(alu_dyn_take_ip),
+      .alu_new_ip(alu_dyn_new_ip),
 
       .mem_ip(mem_ip),
       .mem_instr(mem_instr),
@@ -532,12 +518,13 @@ module cu_pipeline (
 
       .pre_if_stall(pre_if_stall),
 
+      .if1_if2_stall(if1_if2_stall),
+      .if1_if2_bubble(if1_if2_bubble),
+      .if1_if2_ip(if1_if2_flush_ip),
+
       .if_id_stall(if_id_stall),
       .if_id_bubble(if_id_bubble),
       .if_id_ip(if_id_flush_ip),
-      .if_id_page_fault(if_id_page_fault),
-      .if_id_addr_misaligned(if_id_addr_misaligned),
-      .if_id_no_exec_access(if_id_no_exec_access),
 
       .id_alu_stall(id_ex_stall),
       .id_alu_bubble(id_ex_bubble),
@@ -561,7 +548,37 @@ module cu_pipeline (
       .error (),
 
       .next_instr_ptr(next_ip),
-      .instr_ptr(if0_ip)
+      .instr_ptr(if1_ip)
+  );
+
+  if1_if2 ppl_if1_if2 (
+      .clock(clk),
+      .reset(rst),
+
+      .stall (if1_if2_stall),
+      .bubble(if1_if2_bubble),
+
+      .if1_ip(if1_ip),
+      .if2_ip(if2_ip),
+
+      .if1_ppc(if1_mmu_pa),
+      .if2_ppc(if2_ppc),
+
+      .bubble_ip(if1_if2_flush_ip),
+
+      .if1_page_fault(if1_page_fault),
+      .if2_instr_page_fault(if2_page_fault),
+
+      .if1_addr_misaligned(if1_addr_misaligned),
+      .if2_instr_addr_misaligned(if2_addr_misaligned),
+
+      .if1_no_exec_access(if1_no_exec_access),
+      .if2_instr_no_exec_access(if2_no_exec_access),
+
+      .if1_alt_next_ip(if1_alt_next_ip),
+      .if2_alt_next_ip(if2_alt_next_ip),
+
+      .is_bubble(if2_is_bubble)
   );
   if_id ppl_if_id (
       .clock(clk),
@@ -571,31 +588,27 @@ module cu_pipeline (
       .bubble(if_id_bubble),
       .error (),
 
-      .if_ip(if0_ip),
+      .if_ip(if2_ip),
       .id_ip(id_ip),
 
-      .if_jump_pred(jump_pred),
-      .id_jump_pred(id_jump_pred),
-
-      .if_instr(if_mmu_data_arrival),
+      .if_instr(icache_data_i),
       .id_instr(id_instr),
-
-      .if_pred_pc(next_ip_pred),
-      .id_pred_pc(id_pred_pc),
 
       .bubble_ip(if_id_flush_ip),
 
-      .if_page_fault(if_id_page_fault),
+      .if_page_fault(if2_page_fault),
       .id_instr_page_fault(id_instr_page_fault),
 
-      .if_addr_misaligned(if_id_addr_misaligned),
+      .if_addr_misaligned(if2_addr_misaligned),
       .id_instr_addr_misaligned(id_instr_addr_misaligned),
 
-      .if_no_exec_access(if_id_no_exec_access),
+      .if_no_exec_access(if2_no_exec_access),
       .id_instr_no_exec_access(id_instr_no_exec_access),
 
-      .if_alt_next_ip(if_alt_next_ip),
-      .id_alt_next_ip(id_alt_next_ip)
+      .if_alt_next_ip(if2_alt_next_ip),
+      .id_alt_next_ip(id_alt_next_ip),
+
+      .if2_is_bubble(if2_is_bubble)
   );
 
   id_ex ppl_id_ex (
@@ -609,12 +622,6 @@ module cu_pipeline (
       // Control signals.
       .id_ip(id_ip),
       .ex_ip(alu_ip),
-
-      .id_jump_pred(id_jump_pred),
-      .ex_jump_pred(alu_jump_pred),
-
-      .id_pred_pc(id_pred_pc),
-      .ex_pred_pc(ex_pred_pc),
 
       .id_instr(id_instr),
       .ex_instr(alu_instr),
@@ -779,12 +786,12 @@ module cu_pipeline (
   );
   ila analyzer (
       .clk(fast_clock),
-      .probe0(if0_ip),
+      .probe0(if1_ip),
       .probe1(id_ip),
       .probe2(alu_ip),
       .probe3(mem_ip),
       .probe4(wb_ip),
-      .probe5(if_mmu_data_arrival),
+      .probe5(icache_data_i),
       .probe6(id_instr),
       .probe7(alu_instr),
       .probe8(mem_instr),
@@ -798,15 +805,15 @@ module cu_pipeline (
       .probe16(data_mm.tlb_wva),
       .probe17(data_mm.page_fault),
       .probe18(data_mm.page_fault_marker),
-      .probe19(instr_mm.va),
-      .probe20(instr_mm.pa),
-      .probe21(instr_mm.mmu_state),
-      .probe22(instr_mm.va_req),
-      .probe23(instr_mm.tlb_we),
-      .probe24(instr_mm.tlb_wpte),
-      .probe25(instr_mm.tlb_wva),
-      .probe26(instr_mm.page_fault),
-      .probe27(instr_mm.page_fault_marker),
+      .probe19(alt_instr_mm.va),
+      .probe20(alt_instr_mm.pa),
+      .probe21(alt_instr_mm.mmu_state),
+      .probe22(alt_instr_mm.va_req),
+      .probe23(alt_instr_mm.tlb_we),
+      .probe24(alt_instr_mm.tlb_wpte),
+      .probe25(alt_instr_mm.tlb_wva),
+      .probe26(alt_instr_mm.page_fault),
+      .probe27(alt_instr_mm.page_fault_marker),
       .probe28(csr_inst.instr),
       .probe29(csr_inst.privilege),
       .probe30(csr_inst.mstatus),
@@ -821,43 +828,49 @@ module cu_pipeline (
 endmodule
 
 module cu_orchestra (
-    input wire [31:0] if_ip,
-    input wire [31:0] if_instr,
-    input wire        if_ack,
-    input wire        if_page_fault,
-    input wire        if_addr_misaligned,
-    input wire        if_no_exec_access,
-    input wire        if_mmu_error,
-
+    input wire [31:0] if1_ip,
+    input wire [31:0] if1_ack,
+    // ------------------------------
+    input wire [31:0] if2_ip,
+    input wire        if2_ack,
+    // ------------------------------
     input wire [31:0] id_ip,
-    input wire [31:0] id_instr,
+    // load-use
     input wire [ 4:0] id_raddr1,
     input wire [ 4:0] id_raddr2,
-
+    // ------------------------------
     input wire [31:0] alu_ip,
+    // load-use
     input wire [31:0] alu_instr,
     input wire [ 4:0] alu_waddr,
+    // branch misprediction
     input wire        alu_take_ip,
     input wire [31:0] alu_new_ip,
-
+    // ------------------------------
     input wire [31:0] mem_ip,
+    // load-use
     input wire [31:0] mem_instr,
     input wire [ 4:0] mem_waddr,
+    // load memory
     input wire        mem_ack,
+    // sfence.vma / fence.i
     input wire        mem_flush_take_ip,
     input wire [31:0] mem_flush_new_ip,
+    // swap privilege
     input wire        csr_take_ip,
     input wire [31:0] csr_new_ip,
 
     input  wire pause_global,  // XXX
+    // ===============================================================
     output reg  pre_if_stall,
+
+    output reg if1_if2_stall,
+    output reg if1_if2_bubble,
+    output reg [31:0] if1_if2_ip,
 
     output reg if_id_stall,
     output reg if_id_bubble,
     output reg [31:0] if_id_ip,
-    output reg if_id_page_fault,
-    output reg if_id_addr_misaligned,
-    output reg if_id_no_exec_access,
 
     output reg id_alu_stall,
     output reg id_alu_bubble,
@@ -881,16 +894,21 @@ module cu_orchestra (
   // 2. Load use hazards.
   // 3. Branch misprediction / JAL, JALR
 
-  reg if_wait_req;
+  reg if1_wait_req;
+  reg if2_wait_req;
   reg id_wait_req;
   reg alu_wait_req;
   reg mem_wait_req;
   reg wb_wait_req;
   reg mem_take_ip;
   always_comb begin
+    if1_if2_stall = 0;
+    if1_if2_bubble = 0;
+    if1_if2_ip = if1_ip;
+
     if_id_stall = 0;
     if_id_bubble = 0;
-    if_id_ip = if_ip;
+    if_id_ip = if2_ip;
 
     id_alu_stall = 0;
     id_alu_bubble = 0;
@@ -904,18 +922,12 @@ module cu_orchestra (
     mem_wb_bubble = 0;
     mem_wb_ip = mem_ip;
 
-    if_wait_req = 0;
-    id_wait_req = 0;
-    alu_wait_req = 0;
-    mem_wait_req = 0;
     wb_wait_req = 0;
 
-    if_id_page_fault = 0;
-    if_id_no_exec_access = 0;
-    if_id_addr_misaligned = 0;
-
     // Case 1.
-    if_wait_req = ~if_ack;
+    if1_wait_req = ~if1_ack;
+    if2_wait_req = ~if2_ack;
+    alu_wait_req = 0;  // prepare for putting DMMU here.
     mem_wait_req = ~mem_ack;
 
     // Case 2.
@@ -932,17 +944,19 @@ module cu_orchestra (
     // Case 3. Determined by alu_take_ip
     mem_take_ip = mem_flush_take_ip || csr_take_ip;
 
+    // =============================== Output pause/cancel/pc ================================
     // Derive pipeline status backwards.
     mem_wb_stall = pause_global;
     mem_wb_bubble = !mem_wb_stall && mem_wait_req;
 
+
     if (mem_wait_req) begin
       mem_wb_ip = mem_ip;
     end
-    alu_mem_stall  = mem_wb_stall || mem_wait_req;
-    // alu_mem_stall  = (!mem_take_ip) && (mem_wb_stall || mem_wait_req);
-    // alu_mem_bubble = mem_take_ip || ((!alu_mem_stall) && alu_wait_req);
-    alu_mem_bubble = (!alu_mem_stall) && (mem_take_ip || alu_wait_req);
+
+    alu_mem_stall  = (!csr_take_ip) && (mem_wb_stall || mem_wait_req);
+    alu_mem_bubble = csr_take_ip || ((!alu_mem_stall) && (mem_take_ip || alu_wait_req));
+
     if (csr_take_ip) begin
       alu_mem_ip = csr_new_ip;
     end else if (mem_flush_take_ip) begin
@@ -950,13 +964,9 @@ module cu_orchestra (
     end else if ((!alu_mem_stall) && alu_wait_req) begin
       alu_mem_ip = alu_ip;  // Trivial case, ignore afterwards.
     end
+
     id_alu_stall  = (!mem_take_ip) && (alu_mem_stall || alu_wait_req);
-    // id_alu_stall = (! (mem_take_ip || alu_take_ip)) && (alu_wait_req || (alu_mem_stall /*&& mem_instr != NOP*/) );
-    // id_alu_bubble = mem_take_ip || alu_take_ip || (!id_alu_stall && id_wait_req);
     id_alu_bubble = mem_take_ip || (!id_alu_stall && (alu_take_ip || id_wait_req));
-    // XXX
-    // id_alu_stall = id_alu_stall || pause_global;
-    // id_alu_bubble = id_alu_bubble & ~pause_global;
 
     if (csr_take_ip) begin
       id_alu_ip = csr_new_ip;
@@ -967,11 +977,7 @@ module cu_orchestra (
     end
 
     if_id_stall = (! (mem_take_ip || alu_take_ip)) && (id_wait_req || (id_alu_stall /*&& alu_instr != NOP*/) );
-    if_id_bubble = (mem_take_ip || alu_take_ip) || (!if_id_stall && if_wait_req);
-
-    // XXX
-    // if_id_stall = if_id_stall || pause_global;
-    // if_id_bubble = if_id_bubble & ~pause_global;
+    if_id_bubble = (mem_take_ip || alu_take_ip) || (!if_id_stall && if2_wait_req);
 
     if (csr_take_ip) begin
       if_id_ip = csr_new_ip;
@@ -981,15 +987,18 @@ module cu_orchestra (
       if_id_ip = alu_new_ip;
     end
 
-    pre_if_stall = (!(mem_take_ip || alu_take_ip)) && (if_wait_req || if_id_stall);
+    if1_if2_stall  = (!(mem_take_ip || alu_take_ip)) && (if2_wait_req || if_id_stall);
+    if1_if2_bubble = (mem_take_ip || alu_take_ip) || (!if1_if2_stall && if1_wait_req);
 
-    // XXX
-    // pre_if_stall = pre_if_stall || pause_global;
-    if (if_mmu_error) begin
-      if_id_page_fault = if_page_fault;
-      if_id_no_exec_access = if_no_exec_access;
-      if_id_addr_misaligned = if_addr_misaligned;
+    if (csr_take_ip) begin
+      if1_if2_ip = csr_new_ip;
+    end else if (mem_flush_take_ip) begin
+      if1_if2_ip = mem_flush_new_ip;
+    end else if (alu_take_ip) begin
+      if1_if2_ip = alu_new_ip;
     end
+
+    pre_if_stall = (!(mem_take_ip || alu_take_ip)) && (if1_wait_req || if1_if2_stall);
   end
 
 endmodule

@@ -83,12 +83,8 @@ module mem_data_offset_adjust (
 endmodule
 
 module adjust_ip (
-    input  wire [31:0] instr,
-    input  wire [31:0] cmp_res,        // From ALU, refer to ALU in how it handles JALR.
-    input  wire        has_pred_jump,
-    input  wire [31:0] curr_ip,
-    output reg         take_ip,
-    output reg  [31:0] new_ip,
+    input wire [31:0] instr,
+    input wire [31:0] curr_ip,
 
     input wire [31:0] pred_pc,
     input wire [31:0] op1,
@@ -99,40 +95,7 @@ module adjust_ip (
     output wire [31:0] dyn_new_ip
 
 );
-  always_comb begin
-    // Branch instructions.
-    if (instr[6:0] == 7'b1100011) begin
-      if (cmp_res[0] != has_pred_jump) begin
-        take_ip = 1'b1;
-        if (cmp_res[0] == 1'b1) begin  // needs jump, predict no jump
-          // https://riscv.org/wp-content/uploads/2017/05/riscv-spec-v2.2.pdf 
-          // p. 17
-          //   31    |  30:25  | 24:20 | 19:15 | 14:12  | 11:8   | 7     | 6:0    |
-          // +------------------+----------+----------+--------+-------+----------+
-          // | i[12] | i[10:5] |  rs2  | rs1   | funct3 | i[4:1] | i[11] | opcode |
-          // +------------------+----------+----------+--------+-------+----------+
-          new_ip = curr_ip + { {19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
-        end else begin  // predict jump, no jump needed
-          new_ip = curr_ip + 32'd4;
-        end
-      end else begin
-        new_ip  = 32'b0;
-        take_ip = 1'b0;
-      end
-      // JALR instruction.
-      // Note: ret = JALR, x0, 0(x1) 
-      // Remember, in CSAPP, ret has to bubble out everything after it.
-      // ISA p. 16
-      // https://stackoverflow.com/questions/59150608/offset-address-for-jal-and-jalr-instrctions-in-risc-v
-      // Handle jump only, link part is in link_modif.
-    end else if (instr[6:0] == 7'b110_0111) begin
-      take_ip = 1'b1;
-      new_ip  = (cmp_res + {{20{instr[31]}}, instr[31:20]}) & ~(32'b1);
-    end else begin
-      take_ip = 1'b0;
-      new_ip  = curr_ip + 32'd4;
-    end
-  end
+
   localparam BRANCH = 32'b????_????_????_????_????_????_?110_0011;
   localparam BEQ = 32'b????_????_????_????_?000_????_?110_0011;  // BASE
   localparam BNE = 32'b????_????_????_????_?001_????_?110_0011;
@@ -146,7 +109,6 @@ module adjust_ip (
 
   reg branch_needs_jump;
   reg need_jump_c;
-  reg debug;
   reg [31:0] new_ip_c;
   reg take_ip_c;
   always_comb begin
@@ -181,10 +143,7 @@ module adjust_ip (
       end
     endcase
     take_ip_c = pred_pc != new_ip_c;
-    //take_ip = take_ip_c;
-    is_jump = need_jump_c;
-    //new_ip = new_ip_c;
-    debug = take_ip_c != take_ip;
+    is_jump   = need_jump_c;
   end
   assign dyn_take_ip = take_ip_c;
   assign dyn_new_ip  = new_ip_c;
