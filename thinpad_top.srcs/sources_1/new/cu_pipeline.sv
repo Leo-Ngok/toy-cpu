@@ -14,6 +14,7 @@ module cu_pipeline (
     input  wire        icache_ack_i,
     output wire        icache_bypass_o,
     output wire        icache_cache_invalidate,
+    input  wire [31:0] icache_data_delayed_i,
     // DMMU
     output wire        dmmu_re_o,
     output wire [31:0] dmmu_addr_o,
@@ -30,7 +31,8 @@ module cu_pipeline (
     output wire        dcache_bypass_o,
 
     output wire dau_cache_clear,
-    input  wire dau_cache_clear_complete,
+    input wire dau_cache_clear_complete,
+    input wire [31:0] dcache_data_delayed_i,
 
     // Register file
     output wire [ 4:0] rf_raddr1,
@@ -605,7 +607,10 @@ module cu_pipeline (
       .id_ip(id_ip),
 
       .if_instr(icache_data_i),
-      .id_instr(id_instr),
+      .id_instr(  /*id_instr*/),
+
+      .if_instr_delayed(icache_data_delayed_i),
+      .id_instr_delayed(id_instr),
 
       .bubble_ip(if_id_flush_ip),
 
@@ -804,10 +809,11 @@ module cu_pipeline (
       .wb_maddr (wb_maddr),
 
       .mem_wmdata(dcache_data_i),
-      .wb_wmdata (wb_mdata),
-
+      .wb_wmdata(  /*wb_mdata*/),
+      .mem_wmdata_delayed(dcache_data_delayed_i),
+      .wb_wmdata_delayed(wb_mdata),
       .mem_wcsrdata(mem_csrwb),
-      .wb_wcsrdata (wb_csrdata),
+      .wb_wcsrdata(wb_csrdata),
 
       .mem_waludata(mem_wbdata),
       .wb_waludata (wb_aludata)

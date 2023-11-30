@@ -1,4 +1,4 @@
-module cache (
+module cache_alt (
     input wire clock,
     input wire reset,
 
@@ -14,6 +14,7 @@ module cache (
     input  wire [31:0] cu_data_i,
     output wire        cu_ack,
     output wire [31:0] cu_data_o,
+    output wire [31:0] cu_data_o_delayed,
     // TO DAU
     output wire        dau_we,
     output wire        dau_re,
@@ -44,7 +45,6 @@ module cache (
     reg dirty;
     reg [TAG_WIDTH -1:0] tag;
     reg [N_WAY_BW -1 : 0] lru_priority;
-    reg [BLOCK_COUNT - 1:0][31:0] blocks;
   } way_t;
 
   typedef struct packed {way_t [N_WAYS - 1:0] way_arr;} set_t;
@@ -56,37 +56,40 @@ module cache (
 
 
 
-  wire [VALID_ADDR_WIDTH - 1:0] valid_addr = cu_addr[22:2];
-  wire [SET_WIDTH - 1:0] set_idx = valid_addr[BLOCK_WIDTH+:SET_WIDTH];
-  wire [TAG_WIDTH - 1:0] tag = valid_addr[BLOCK_WIDTH+SET_WIDTH+:TAG_WIDTH];
-  wire [BLOCK_WIDTH - 1:0] block_idx = valid_addr[0+:BLOCK_WIDTH];
-
+  //   wire [VALID_ADDR_WIDTH - 1:0] valid_addr = cu_addr[22:2];
+  //   wire [SET_WIDTH - 1:0] set_idx = valid_addr[BLOCK_WIDTH+:SET_WIDTH];
+  //   wire [TAG_WIDTH - 1:0] tag = valid_addr[BLOCK_WIDTH+SET_WIDTH+:TAG_WIDTH];
+  //   wire [BLOCK_WIDTH - 1:0] block_idx = valid_addr[0+:BLOCK_WIDTH];
+  reg [VALID_ADDR_WIDTH - 1:0] valid_addr;
+  reg [SET_WIDTH - 1:0] set_idx;
+  reg [TAG_WIDTH - 1:0] tag;
+  reg [BLOCK_WIDTH - 1:0] block_idx;
+  always_comb begin
+    valid_addr = cu_addr[22:2];
+    set_idx = valid_addr[BLOCK_WIDTH+:SET_WIDTH];
+    tag = valid_addr[BLOCK_WIDTH+SET_WIDTH+:TAG_WIDTH];
+    block_idx = valid_addr[0+:BLOCK_WIDTH];
+  end
   reg cache_hit;
   reg [N_WAY_BW - 1:0] way_idx;
-  reg [31:0] load_instr;
 
-  always_comb begin
-    int i_way;
-    cache_hit = 0;
-    way_idx = 0;
-    load_instr = 32'b011011;
-    for (i_way = 0; i_way < N_WAYS; ++i_way) begin
-      if(cache_regs[set_idx].way_arr[i_way].valid && 
-               cache_regs[set_idx].way_arr[i_way].tag == tag) begin
-        cache_hit = 1'b1;
-        way_idx = i_way;
-        load_instr = cache_regs[set_idx].way_arr[i_way].blocks[block_idx];
-        break;
-      end
-    end
-  end
+  // logic for controlling BRAM contents.
+  reg [BLOCK_WIDTH - 1:0] block_idx_c;
+
+  reg [SET_WIDTH - 1:0] work_set_c;
+  reg [N_WAY_BW - 1 : 0] work_way_c;
+  reg [SET_WIDTH + N_WAY_BW + BLOCK_WIDTH - 1 : 0] read_addr;
+  reg [SET_WIDTH + N_WAY_BW + BLOCK_WIDTH - 1 : 0] write_addr;
+  reg [3:0] cache_we;
+  reg [31:0] write_data;
+  wire [31:0] read_data;
+  reg [TAG_WIDTH - 1:0] hit_tag;
 
   typedef enum reg [4:0] {
     WAIT,
     FETCHING_BLOCKS,
     RELEASE_BLOCKS,
-    FLUSH_BLOCKS,
-    FETCH_COMPLETE
+    FLUSH_BLOCKS
   } cache_state_t;
 
   reg has_dirty_block;
@@ -130,9 +133,6 @@ module cache (
           cache_regs[i_set].way_arr[i_way].dirty <= 1'b0;
           cache_regs[i_set].way_arr[i_way].tag <= {TAG_WIDTH{1'b0}};
           cache_regs[i_set].way_arr[i_way].lru_priority <= {N_WAY_BW{1'b0}};
-          for (i_block = 0; i_block < BLOCK_COUNT; ++i_block) begin
-            cache_regs[i_set].way_arr[i_way].blocks[i_block] <= 32'b0;
-          end
         end
       end
       state <= WAIT;
@@ -183,18 +183,6 @@ module cache (
           end
           // write back cache.
           if (cu_we && cache_hit && !bypass_internal) begin
-            if (cu_be[0]) begin
-              cache_regs[set_idx].way_arr[way_idx].blocks[block_idx][7:0] <= cu_data_i[7:0];
-            end
-            if (cu_be[1]) begin
-              cache_regs[set_idx].way_arr[way_idx].blocks[block_idx][15:8] <= cu_data_i[15:8];
-            end
-            if (cu_be[2]) begin
-              cache_regs[set_idx].way_arr[way_idx].blocks[block_idx][23:16] <= cu_data_i[23:16];
-            end
-            if (cu_be[3]) begin
-              cache_regs[set_idx].way_arr[way_idx].blocks[block_idx][31:24] <= cu_data_i[31:24];
-            end
             if (cu_be != 4'b0) begin
               cache_regs[set_idx].way_arr[way_idx].dirty <= 1'b1;
             end
@@ -236,7 +224,6 @@ module cache (
                 end else begin
                   fetch_block_idx <= fetch_block_idx + 1;
                 end
-                cache_regs[set_idx].way_arr[fetch_way_idx_reg].blocks[fetch_block_idx] <= dau_data_i;
               end
             end else begin
               // in case a mispredicted branch loading, evacuate immediately.
@@ -264,9 +251,6 @@ module cache (
               fetch_block_idx <= fetch_block_idx + 1;
             end
           end
-        end
-        FETCH_COMPLETE: begin
-          state <= WAIT;
         end
         default: begin
           state <= WAIT;
@@ -311,7 +295,7 @@ module cache (
           fetch_block_idx,
           2'b0
         };
-        dau_data_departure_comb = cache_regs[set_idx].way_arr[fetch_way_idx_reg].blocks[fetch_block_idx];
+        dau_data_departure_comb = read_data;
       end
       FETCHING_BLOCKS: begin
         dau_re_comb   = 1'b1;
@@ -320,24 +304,133 @@ module cache (
       FLUSH_BLOCKS: begin
         dau_we_comb = 1'b1;
         dau_addr_comb = {9'b1000_0000_0, flush_way_tag, flush_set_reg, fetch_block_idx, 2'b0};
-        dau_data_departure_comb = cache_regs[flush_set_reg].way_arr[flush_way_reg].blocks[fetch_block_idx];
+        dau_data_departure_comb = read_data;
         if (dau_ack && fetch_block_idx == BLOCK_COUNT - 1 && !has_dirty_block) begin
           clear_complete_comb = 1;
         end
       end
-      FETCH_COMPLETE: begin
-        dau_re_comb = 1'b0;
-      end
     endcase
   end
 
+  always_comb begin
+    block_idx_c = {BLOCK_WIDTH{1'b0}};
+    work_set_c = {SET_WIDTH{1'b0}};
+    work_way_c = {N_WAY_BW{1'b0}};
+    read_addr = {(SET_WIDTH + N_WAY_BW + BLOCK_WIDTH) {1'b0}};
+    write_addr = {(SET_WIDTH + N_WAY_BW + BLOCK_WIDTH) {1'b0}};
+    cache_we = 4'b0;
+    write_data = 32'b0;
+    // ----------------------------------------------------------------------
+    cache_hit = 0;
+    way_idx = 0;
+    hit_tag = {TAG_WIDTH{1'b0}};
+    for (int i_way = 0; i_way < N_WAYS; ++i_way) begin
+      if(cache_regs[set_idx].way_arr[i_way].valid && 
+               cache_regs[set_idx].way_arr[i_way].tag == tag) begin
+        cache_hit = 1'b1;
+        way_idx   = i_way;
+        break;
+      end
+    end
+    // ----------------------------------------------------------------------
 
+    // ----------------------------------------------------------------------
+    case (state)
+      WAIT: begin
+        if (flush) begin
+          if (has_dirty_block) begin
+            // spill all cache blocks, transit to FLUSH_BLOCKS.
+            work_set_c = dirty_set_idx;
+            work_way_c = dirty_way_idx;
+            read_addr  = {work_set_c, work_way_c, block_idx_c};
+          end
+        end else if ((cu_we || cu_re) && !cache_hit) begin
+          // block of least recently used is now being replaced.
+          if (!bypass_internal) begin
+            work_set_c = set_idx;
+            work_way_c = fetch_way_idx_comb;
+            // in case RELEASE_BLOCKS.
+            read_addr  = {work_set_c, work_way_c, block_idx_c};
+          end
+        end
+        if (cu_we && cache_hit && !bypass_internal) begin
+          // write request when cache hits.
+          cache_we   = cu_be;
+          write_addr = {set_idx, way_idx, block_idx};
+          write_data = cu_data_i;
+        end
+        if (cu_re && cache_hit && !bypass_internal) begin
+          hit_tag   = cache_regs[set_idx].way_arr[way_idx].tag;
+          read_addr = {cu_addr[2+BLOCK_WIDTH+:SET_WIDTH], way_idx, cu_addr[2+:BLOCK_WIDTH]};
+          //   read_addr = {set_idx, way_idx, block_idx};
+
+        end
+      end
+      RELEASE_BLOCKS: begin
+        work_set_c  = set_idx;
+        work_way_c  = fetch_way_idx_reg;
+        block_idx_c = fetch_block_idx;
+        if (dau_ack) begin
+          // read the contents in the next block offset.
+          block_idx_c = fetch_block_idx + 1;
+        end
+        read_addr = {work_set_c, work_way_c, block_idx_c};
+      end
+      FLUSH_BLOCKS: begin
+        work_set_c  = flush_set_reg;
+        work_way_c  = flush_way_reg;
+        block_idx_c = fetch_block_idx;
+        if (dau_ack) begin
+          block_idx_c = fetch_block_idx + 1;
+          if (fetch_block_idx == BLOCK_COUNT - 1) begin
+            if (has_dirty_block) begin
+              work_set_c = dirty_set_idx;
+              work_way_c = dirty_way_idx;
+            end
+          end
+        end
+        read_addr = {work_set_c, work_way_c, block_idx_c};
+      end
+      FETCHING_BLOCKS: begin
+        work_set_c  = set_idx;
+        work_way_c  = fetch_way_idx_reg;
+        block_idx_c = fetch_block_idx;
+        write_addr  = {work_set_c, work_way_c, block_idx_c};
+        if (dau_ack) begin
+          cache_we   = 4'b1111;
+          write_data = dau_data_i;
+        end
+      end
+    endcase
+  end
+  reg write_err;
+  always @(posedge clock)
+    if (reset) write_err <= 0;
+    else write_err <= dau_we_comb && (dau_data_departure_comb != read_data);
+  cache_ram memory (
+      .clka (clock),
+      .clkb (clock),
+      .wea  (cache_we),
+      .addra(write_addr),
+      .dina (write_data),
+
+      .addrb(read_addr),
+      .doutb(read_data)
+  );
+  reg [31:0] bus_data_delayed;
+  reg bypass_relay;
+  always @(posedge clock)
+    if (reset) begin
+      bus_data_delayed <= 32'b0;
+      bypass_relay <= 0;
+    end else begin
+      bus_data_delayed <= dau_data_i;
+      bypass_relay <= bypass_internal;
+    end
+
+  assign cu_data_o_delayed = bypass_relay ? bus_data_delayed : read_data;
   assign cu_ack = bypass_internal ? dau_ack : cache_hit;
-  assign cu_data_o = bypass_internal ? dau_data_i : (cu_ack ? (
-        cache_regs[set_idx].way_arr[way_idx].tag == tag ? 
-        cache_regs[set_idx].way_arr[way_idx].blocks[block_idx] : load_instr): 
-        32'b0);
-
+  assign cu_data_o = 32'b0;
   assign dau_we = (bypass_internal && state != FLUSH_BLOCKS) ? cu_we : dau_we_comb;
   assign dau_re = (bypass_internal && state != FLUSH_BLOCKS) ? cu_re : dau_re_comb;
   assign dau_addr = (bypass_internal && state != FLUSH_BLOCKS) ? cu_addr : dau_addr_comb;

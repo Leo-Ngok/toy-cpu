@@ -132,6 +132,8 @@ module thinpad_top (
   wire [31:0] i_cache_data;
   wire        i_cache_ack;
 
+  wire [31:0] i_cache_data_delayed;
+
   wire        d_cache_bypass;
   wire        d_cache_we;
   wire        d_cache_re;
@@ -140,6 +142,8 @@ module thinpad_top (
   wire [31:0] d_cache_data_departure;
   wire        d_cache_ack;
   wire [31:0] d_cache_data_arrival;
+
+  wire [31:0] d_cache_data_delayed;
 
   wire        d_cache_clear;
   wire        d_cache_clear_complete;
@@ -176,7 +180,7 @@ module thinpad_top (
   wire step;
 
 
-  cache icache (
+  cache_alt icache (
       .clock(sys_clk),
       .reset(sys_rst),
 
@@ -193,6 +197,8 @@ module thinpad_top (
       .cu_ack(i_cache_ack),
       .cu_data_o(i_cache_data),
 
+      .cu_data_o_delayed(i_cache_data_delayed),
+
       .dau_we(),
       .dau_re(dau_instr_re),
       .dau_addr(dau_instr_addr),
@@ -202,7 +208,7 @@ module thinpad_top (
       .dau_data_i(dau_instr_data)
   );
 
-  cache dcache (
+  cache_alt dcache (
       .clock(sys_clk),
       .reset(sys_rst),
 
@@ -219,6 +225,9 @@ module thinpad_top (
       .cu_data_i(d_cache_data_departure),
       .cu_ack(d_cache_ack),
       .cu_data_o(d_cache_data_arrival),
+
+      .cu_data_o_delayed(d_cache_data_delayed),
+
       // TO DAU
       .dau_we(dau_we),
       .dau_re(dau_re),
@@ -294,52 +303,6 @@ module thinpad_top (
 
       .local_intr(local_intr)
   );
-  //   dau_unified dau (
-  //       .sys_clk(sys_clk),
-  //       .sys_rst(sys_rst),
-
-  //       .instr_re_i  (dau_instr_re),
-  //       .instr_addr_i(dau_instr_addr),
-  //       .instr_data_o(dau_instr_data),
-  //       .instr_ack_o (dau_instr_ack),
-
-  //       .we_i   (dau_we),
-  //       .re_i   (dau_re),
-  //       .addr_i (dau_addr),
-  //       .byte_en(dau_byte_en),
-  //       .data_i (dau_data_write),
-  //       .data_o (dau_data_read),
-  //       .ack_o  (dau_ack),
-
-  //       .base_ram_data(base_ram_data),
-  //       .base_ram_addr(base_ram_addr),
-  //       .base_ram_be_n(base_ram_be_n),
-  //       .base_ram_ce_n(base_ram_ce_n),
-  //       .base_ram_oe_n(base_ram_oe_n),
-  //       .base_ram_we_n(base_ram_we_n),
-
-  //       .ext_ram_data(ext_ram_data),
-  //       .ext_ram_addr(ext_ram_addr),
-  //       .ext_ram_be_n(ext_ram_be_n),
-  //       .ext_ram_ce_n(ext_ram_ce_n),
-  //       .ext_ram_oe_n(ext_ram_oe_n),
-  //       .ext_ram_we_n(ext_ram_we_n),
-
-  //       .rxd(rxd),
-  //       .txd(txd),
-
-  //       .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
-  //       .flash_d(flash_d),  // Flash 数据
-  //       .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
-  //       .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
-  //       .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
-  //       .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
-  //       .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
-  //       .flash_byte_n(flash_byte_n), // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
-
-  //       .local_intr(local_intr)
-  //   );
-
   register_file registers (
       .clock(sys_clk),
       .reset(sys_rst),
@@ -386,11 +349,11 @@ module thinpad_top (
       .icache_data_i(i_cache_data),
       .icache_bypass_o(i_cache_bypass),
       .icache_cache_invalidate(i_cache_invalidate),
-
-      .dmmu_re_o  (dmmu_re),
+      .icache_data_delayed_i(i_cache_data_delayed),
+      .dmmu_re_o(dmmu_re),
       .dmmu_addr_o(dmmu_addr),
       .dmmu_data_i(dmmu_data),
-      .dmmu_ack_i (dmmu_ack),
+      .dmmu_ack_i(dmmu_ack),
 
       .dcache_we_o   (d_cache_we),
       .dcache_re_o   (d_cache_re),
@@ -403,6 +366,7 @@ module thinpad_top (
       .dcache_bypass_o(d_cache_bypass),
       .dau_cache_clear(d_cache_clear),
       .dau_cache_clear_complete(d_cache_clear_complete),
+      .dcache_data_delayed_i(d_cache_data_delayed),
 
       .rf_raddr1(rf_raddr1),
       .rf_rdata1(rf_rdata1),
