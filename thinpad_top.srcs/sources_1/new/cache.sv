@@ -330,7 +330,7 @@ module cache (
       end
       FLUSH_BLOCKS: begin
         dau_we_comb = 1'b1;
-        dau_addr_comb = {9'b1000_0000_0, flush_set_reg, flush_way_tag, fetch_block_idx, 2'b0};
+        dau_addr_comb = {9'b1000_0000_0, flush_way_tag, flush_set_reg, fetch_block_idx, 2'b0};
         dau_data_departure_comb = cache_regs[flush_set_reg].way_arr[flush_way_reg].blocks[fetch_block_idx];
         if (dau_ack && fetch_block_idx == BLOCK_COUNT - 1 && !has_dirty_block) begin
           clear_complete_comb = 1;

@@ -137,6 +137,15 @@ module cu_pipeline (
   wire        alu_is_jump_alt;
   wire        alu_dyn_take_ip;
   wire [31:0] alu_dyn_new_ip;
+  // D-MMU
+  wire        alu_dmmu_ack;
+  wire [31:0] alu_dmmu_pa;
+
+  wire        alu_dmmu_page_fault;
+  wire        alu_dmmu_read_violation;
+  wire        alu_dmmu_write_violation;
+  wire        alu_dmmu_addr_misaligned;
+  wire        alu_dmmu_error;
   // ========================================== MEM ==========================================
   // From ALU stage
   wire [31:0] mem_instr;
@@ -158,9 +167,12 @@ module cu_pipeline (
   wire [ 4:0] mem_wbaddr;
   wire [31:0] mem_wbdata;
 
+  wire [31:0] mem_dmmu_pa;
+  wire        mem_dmmu_page_fault;
+  wire        mem_dmmu_read_violation;
+  wire        mem_dmmu_write_violation;
+  wire        mem_dmmu_addr_misaligned;
   // Stage generated signals.
-  wire [31:0] mem_mmu_data_arrival;
-  wire        mem_mmu_ack;
   wire [31:0] mem_rf_wdata;
   wire        mem_pause;
 
@@ -172,10 +184,6 @@ module cu_pipeline (
   wire        mem_invalidate_tlb;
   wire        mem_invalidate_icache;
 
-  wire        mem_data_page_fault;
-  wire        mem_write_violation;
-  wire        mem_read_violation;
-  wire        mem_addr_misaligned;
   // ========================================== WB ==========================================
   wire [31:0] wb_ip;
   wire [31:0] wb_instr;
@@ -341,7 +349,7 @@ module cu_pipeline (
   );
   mem_data_offset_adjust mem_write_adjust (
       .mem_we(alu_mwe),
-      .write_address(alu_out),
+      .write_address(alu_op1 + ex_imm),
       .instr(alu_instr),
 
       .in_data (alu_op2),
@@ -354,6 +362,42 @@ module cu_pipeline (
       .alu_out(alu_out),
       .wb_wdata(alu_wbdata_adjusted)
   );
+  mmu_iter alt_data_mm (
+      .clock(clk),
+      .reset(rst),
+
+      .satp(satp),
+      .va  (alu_op1 + ex_imm),
+      .pa  (dmmu_addr_o),
+
+      .data_we_i(alu_mwe),
+      .data_re_i(alu_mre),
+      .byte_en_i(alu_mbe_adjusted),
+      .data_departure_i(32'b0),
+      .data_arrival_o(alu_dmmu_pa),
+      .data_ack_o(alu_dmmu_ack),
+
+      .data_we_o(),
+      .data_re_o(dmmu_re_o),
+      .byte_en_o(),
+      .data_departure_o(),
+      .data_arrival_i(dmmu_data_i),
+      .data_ack_i(dmmu_ack_i),
+
+      .bypass(),
+      .invalidate_tlb(mem_invalidate_tlb),
+      .if_enable(1'b0),
+      .priv(csr_inst.privilege),
+      .sum(csr_inst.sum),
+
+      .page_fault(alu_dmmu_page_fault),
+      .no_read_access(alu_dmmu_read_violation),
+      .no_write_access(alu_dmmu_write_violation),
+      .no_exec_access(),  // never
+      .addr_misaligned(alu_dmmu_addr_misaligned),
+      .mmu_error(alu_dmmu_error),
+      .pte_debug()
+  );
   // ========================================== MEM ==========================================
   assign dau_cache_clear = mem_clear_icache || mem_clear_tlb;
   assign mem_invalidate_icache = dau_cache_clear_complete && mem_clear_icache;
@@ -362,7 +406,7 @@ module cu_pipeline (
 
   rf_write_data_mux rf_wdata_mux (
       .rf_we  (mem_wbwe),
-      .mem_re (0),
+      .mem_re ('0),
       .csr_acc(mem_csracc),
 
       .alu_data(mem_wbdata),
@@ -373,7 +417,7 @@ module cu_pipeline (
   );
   devacc_pause device_access_pause (
       .mem_instr(mem_instr),
-      .dau_ack(mem_mmu_ack),
+      .dau_ack(dcache_ack_i),
       .dau_cache_clear(dau_cache_clear),
       .dau_cache_clear_complete(dau_cache_clear_complete),
       .pause_o(mem_pause)
@@ -395,13 +439,13 @@ module cu_pipeline (
       .new_ip (mem_csr_new_ip),
 
       .instr_page_fault(mem_instr_page_fault),
-      .data_page_fault (mem_data_page_fault),
+      .data_page_fault (mem_dmmu_page_fault),
 
       .instr_addr_misaligned(mem_instr_addr_misaligned),
-      .data_addr_misaligned (mem_addr_misaligned),
+      .data_addr_misaligned (mem_dmmu_addr_misaligned),
 
-      .no_read_access (mem_read_violation),
-      .no_write_access(mem_write_violation),
+      .no_read_access (mem_dmmu_read_violation),
+      .no_write_access(mem_dmmu_write_violation),
       .no_exec_access (mem_instr_no_exec_access),
 
       .instr_fault_addr(mem_ip),
@@ -412,45 +456,13 @@ module cu_pipeline (
 
   assign satp = {csr_inst.mmu_enable, csr_inst.satp[30:0]};
   wire [31:0] pte_debug;
-  mmu data_mm (
-      .clock(clk),
-      .reset(rst),
 
-      .satp(satp),
-      .va  (mem_addr),
-      .pa  (dcache_addr_o),
-
-      .data_we_i(mem_mwe),
-      .data_re_i(mem_mre),
-      .byte_en_i(mem_mbe),
-      .data_departure_i(mem_data),
-      .data_arrival_o(mem_mmu_data_arrival),
-      .data_ack_o(mem_mmu_ack),
-
-      .data_we_o(dcache_we_o),
-      .data_re_o(dcache_re_o),
-      .byte_en_o(dcache_byte_en),
-      .data_departure_o(dcache_data_o),
-      .data_arrival_i(dcache_data_i),
-      .data_ack_i(dcache_ack_i),
-
-      .bypass(dcache_bypass_o),
-      .invalidate_tlb(mem_invalidate_tlb),
-      .if_enable(1'b0),
-      .priv(csr_inst.privilege),
-      .sum(csr_inst.sum),
-
-      .page_fault(mem_data_page_fault),
-      .no_read_access(mem_read_violation),
-      .no_write_access(mem_write_violation),
-      .no_exec_access(),  // never happens.
-      .addr_misaligned(mem_addr_misaligned),
-      .mmu_error(),  // no need.
-
-      .pte_debug(pte_debug)
-  );
-  assign dmmu_re_o = 0;
-  assign dmmu_addr_o = 32'b0;
+  assign dcache_addr_o = mem_dmmu_pa;
+  assign dcache_we_o = mem_mwe;
+  assign dcache_re_o = mem_mre;
+  assign dcache_byte_en = mem_mbe;
+  assign dcache_data_o = mem_data;
+  assign dcache_bypass_o = 1'b0;
   // ========================================== WB ==========================================
   assign rf_we    = wb_we;
   assign rf_waddr = wb_addr;
@@ -502,6 +514,7 @@ module cu_pipeline (
       .alu_ip(alu_ip),
       .alu_instr(alu_instr),
       .alu_waddr(alu_wbaddr),
+      .alu_dmmu_ack(!(alu_mre || alu_mwe) || alu_dmmu_ack),
       .alu_take_ip(alu_dyn_take_ip),
       .alu_new_ip(alu_dyn_new_ip),
 
@@ -694,16 +707,16 @@ module cu_pipeline (
       .mem_ip(mem_ip),
 
       // Part 1: Input for DAU
-      .ex_mre (alu_mre),
+      .ex_mre (alu_mre && !alu_dmmu_error),
       .mem_mre(mem_mre),
 
-      .ex_mwe (alu_mwe),
+      .ex_mwe (alu_mwe && !alu_dmmu_error),
       .mem_mwe(mem_mwe),
 
       .ex_mbe (alu_mbe_adjusted),
       .mem_mbe(mem_mbe),
 
-      .ex_maddr (alu_out),
+      .ex_maddr (alu_op1 + ex_imm),
       .mem_maddr(mem_addr),
 
       .ex_mdata (alu_mwdata_adjusted),
@@ -733,8 +746,23 @@ module cu_pipeline (
       .ex_clear_icache (alu_clear_icache),
       .mem_clear_icache(mem_clear_icache),
 
+      .ex_dmmu_pa (alu_dmmu_pa),
+      .mem_dmmu_pa(mem_dmmu_pa),
+
+      .ex_dmmu_page_fault (alu_dmmu_page_fault),
+      .mem_dmmu_page_fault(mem_dmmu_page_fault),
+
+      .ex_dmmu_read_violation (alu_dmmu_read_violation),
+      .mem_dmmu_read_violation(mem_dmmu_read_violation),
+
+      .ex_dmmu_write_violation (alu_dmmu_write_violation),
+      .mem_dmmu_write_violation(mem_dmmu_write_violation),
+
+      .ex_dmmu_addr_misaligned (alu_dmmu_addr_misaligned),
+      .mem_dmmu_addr_misaligned(mem_dmmu_addr_misaligned),
+
       // Part 2: Metadata for next stage.
-      .ex_we (alu_wbwe),
+      .ex_we (alu_wbwe && (!alu_mre || !alu_dmmu_error)),
       .mem_we(mem_wbwe),
 
       .ex_wraddr (alu_wbaddr),
@@ -775,7 +803,7 @@ module cu_pipeline (
       .mem_maddr(mem_addr),
       .wb_maddr (wb_maddr),
 
-      .mem_wmdata(mem_mmu_data_arrival),
+      .mem_wmdata(dcache_data_i),
       .wb_wmdata (wb_mdata),
 
       .mem_wcsrdata(mem_csrwb),
@@ -796,15 +824,15 @@ module cu_pipeline (
       .probe7(alu_instr),
       .probe8(mem_instr),
       .probe9(wb_instr),
-      .probe10(data_mm.va),
-      .probe11(data_mm.pa),
-      .probe12(data_mm.mmu_state),
-      .probe13(data_mm.va_req),
-      .probe14(data_mm.tlb_we),
-      .probe15(data_mm.tlb_wpte),
-      .probe16(data_mm.tlb_wva),
-      .probe17(data_mm.page_fault),
-      .probe18(data_mm.page_fault_marker),
+      .probe10(alt_data_mm.va),
+      .probe11(alt_data_mm.pa),
+      .probe12(alt_data_mm.mmu_state),
+      .probe13(alt_data_mm.va_req),
+      .probe14(alt_data_mm.tlb_we),
+      .probe15(alt_data_mm.tlb_wpte),
+      .probe16(alt_data_mm.tlb_wva),
+      .probe17(alt_data_mm.page_fault),
+      .probe18(alt_data_mm.page_fault_marker),
       .probe19(alt_instr_mm.va),
       .probe20(alt_instr_mm.pa),
       .probe21(alt_instr_mm.mmu_state),
@@ -829,7 +857,7 @@ endmodule
 
 module cu_orchestra (
     input wire [31:0] if1_ip,
-    input wire [31:0] if1_ack,
+    input wire        if1_ack,
     // ------------------------------
     input wire [31:0] if2_ip,
     input wire        if2_ack,
@@ -843,6 +871,8 @@ module cu_orchestra (
     // load-use
     input wire [31:0] alu_instr,
     input wire [ 4:0] alu_waddr,
+    // load dmmu
+    input wire        alu_dmmu_ack,
     // branch misprediction
     input wire        alu_take_ip,
     input wire [31:0] alu_new_ip,
@@ -927,7 +957,7 @@ module cu_orchestra (
     // Case 1.
     if1_wait_req = ~if1_ack;
     if2_wait_req = ~if2_ack;
-    alu_wait_req = 0;  // prepare for putting DMMU here.
+    alu_wait_req = ~alu_dmmu_ack;  // prepare for putting DMMU here.
     mem_wait_req = ~mem_ack;
 
     // Case 2.

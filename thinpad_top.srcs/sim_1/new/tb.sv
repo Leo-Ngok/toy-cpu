@@ -69,7 +69,7 @@ module tb;
       reg [31:0] data[0:10000000];
       fd = $fopen(filename, "rb");
       if (fd == 0) begin
-        $display("Error: no file named $s\n", filename);
+        $display("Error: no file named %s\n", filename);
       end else begin
         sz = $fread(data, fd);
         $display("Read %s, size = %d", filename, sz);
@@ -102,12 +102,13 @@ module tb;
     //write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\read_flash.bin",
     //          32'h8010_0000);
     #350000;
-    //write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\test_pf.bin",
-     //         32'h8010_0000);
+    write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\test_read_valid.bin",
+              32'h8010_0000);
     uart.pc_send_byte(8'h47);
+    write_u32(32'h0);
     //write_u32(32'h0);
     //write_u32(32'h80001064);
-    write_u32(32'h8000_10a8);
+    //write_u32(32'h8000_10a8);
   end
 
   // ?????????????

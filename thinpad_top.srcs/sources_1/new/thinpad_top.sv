@@ -206,7 +206,7 @@ module thinpad_top (
       .clock(sys_clk),
       .reset(sys_rst),
 
-      .bypass(/*d_cache_bypass*/1'b1),  /* Hardwire to 1 if you want to explicitly disable D-cache. */
+      .bypass(d_cache_bypass),  /* Hardwire to 1 if you want to explicitly disable D-cache. */
       .flush(d_cache_clear),
       .invalidate(1'b0),
       .clear_complete(d_cache_clear_complete),

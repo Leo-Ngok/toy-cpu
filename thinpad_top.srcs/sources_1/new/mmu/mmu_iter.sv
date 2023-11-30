@@ -139,8 +139,8 @@ module mmu_iter (
 
     page_fault_marker = 0;
 
-    can_read_comb = data_re_i;
-    can_write_comb = data_we_i;
+    can_read_comb = 1;  //data_re_i;
+    can_write_comb = 1;  //data_we_i;
     can_access_comb = 0;
 
     address_misaligned_comb = 0;
@@ -163,6 +163,7 @@ module mmu_iter (
           pte_debug = tlb_pte;  // XXX
           data_arrival_comb = {tlb_pte[29:10], va[11:0]};
           data_ack_comb = 1;
+          page_fault_marker = (tlb_pte[0] == 1'b0);
         end
       end
       FETCH_ROOT_PAGE: begin
@@ -173,6 +174,7 @@ module mmu_iter (
         if (data_ack_i) begin
           if (data_arrival_i[0] == 1'b0) begin  // Root page pte page fault.
             page_fault_marker = 1;
+            data_ack_comb = 1;  // meaningless to load second page.
           end
         end
       end
@@ -184,11 +186,11 @@ module mmu_iter (
         if (data_ack_i) begin
           if (data_arrival_i[0] == 1'b0) begin  // Leaf page pte page fault.
             page_fault_marker = 1;
-          end else begin
-            tlb_we   = 1;
-            tlb_wpte = data_arrival_i;
-            tlb_wva  = va;
-          end
+          end  //else begin
+          tlb_we   = 1;
+          tlb_wpte = data_arrival_i;
+          tlb_wva  = va;
+          //end
         end
       end
     endcase

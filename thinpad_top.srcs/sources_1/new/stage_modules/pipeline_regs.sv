@@ -381,6 +381,21 @@ module ex_mem (
     input  wire ex_clear_icache,
     output reg  mem_clear_icache,
 
+    input  wire [31:0] ex_dmmu_pa,
+    output reg  [31:0] mem_dmmu_pa,
+
+    input  wire ex_dmmu_page_fault,
+    output reg  mem_dmmu_page_fault,
+
+    input  wire ex_dmmu_read_violation,
+    output reg  mem_dmmu_read_violation,
+
+    input  wire ex_dmmu_write_violation,
+    output reg  mem_dmmu_write_violation,
+
+    input  wire ex_dmmu_addr_misaligned,
+    output reg  mem_dmmu_addr_misaligned,
+
     // Metadata for next stage.
     input  wire ex_we,
     output reg  mem_we,
@@ -415,6 +430,12 @@ module ex_mem (
 
       mem_clear_tlb             <= 1'b0;
       mem_clear_icache          <= 1'b0;
+
+      mem_dmmu_pa               <= 32'b0;
+      mem_dmmu_page_fault       <= 1'b0;
+      mem_dmmu_read_violation   <= 1'b0;
+      mem_dmmu_write_violation  <= 1'b0;
+      mem_dmmu_addr_misaligned  <= 1'b0;
       // 2. Write back
       mem_we                    <= 1'b1;
       mem_wraddr                <= 32'b0;
@@ -447,6 +468,12 @@ module ex_mem (
         mem_clear_tlb             <= 1'b0;
         mem_clear_icache          <= 1'b0;
 
+        mem_dmmu_pa               <= 32'b0;
+        mem_dmmu_page_fault       <= 1'b0;
+        mem_dmmu_read_violation   <= 1'b0;
+        mem_dmmu_write_violation  <= 1'b0;
+        mem_dmmu_addr_misaligned  <= 1'b0;
+
         // 2. Write back
         mem_we                    <= 1'b1;
         mem_wraddr                <= 32'b0;
@@ -474,6 +501,12 @@ module ex_mem (
 
         mem_clear_tlb             <= ex_clear_tlb;
         mem_clear_icache          <= ex_clear_icache;
+
+        mem_dmmu_pa               <= ex_dmmu_pa;
+        mem_dmmu_page_fault       <= ex_dmmu_page_fault;
+        mem_dmmu_read_violation   <= ex_dmmu_read_violation;
+        mem_dmmu_write_violation  <= ex_dmmu_write_violation;
+        mem_dmmu_addr_misaligned  <= ex_dmmu_addr_misaligned;
 
         // 2. Write back
         mem_we                    <= ex_we;
