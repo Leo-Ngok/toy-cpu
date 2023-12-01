@@ -13,17 +13,17 @@
 // VSPP: vertical synchro pulse polarity (0 - negative, 1 - positive)
 //
 module vga #(
-    parameter WIDTH = 0,
-    HSIZE = 0,
-    HFP = 0,
-    HSP = 0,
-    HMAX = 0,
-    VSIZE = 0,
-    VFP = 0,
-    VSP = 0,
-    VMAX = 0,
-    HSPP = 0,
-    VSPP = 0
+    parameter WIDTH = 12,
+    HSIZE = 800,
+    HFP = 856,
+    HSP = 976,
+    HMAX = 1040,
+    VSIZE = 600,
+    VFP = 637,
+    VSP = 643,
+    VMAX = 666,
+    HSPP = 1,
+    VSPP = 1
 ) (
     input wire clk,
     input wire rst,

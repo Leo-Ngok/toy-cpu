@@ -108,8 +108,16 @@ module dau_new (
     output wire flash_we_n,  // Flash 写使能信号，低有效
     output wire flash_byte_n, // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
 
+    // VGA
+    input  wire [11:0] vga_hdata,
+    input  wire [ 9:0] vga_vdata,
+    input  wire        vga_hsync,
+    input  wire        vga_vsync,
+    input  wire        vga_video_de,
+    output reg [7:0] pixel, // VGA 输出像素数据
+    
     // CLINT interrupt signal
-    output wire local_intr
+    output wire        local_intr
 );
   // This module could be illustrated as the diagram below.
 
