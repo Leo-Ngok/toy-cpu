@@ -31,7 +31,7 @@ module sram_controller_fast #(
     output wire [     SRAM_BYTES-1:0] sram_be_n
 );
 
-  // TO-DO: 实现 SRAM 控制�?
+  // TO-DO: 实现 SRAM 控制�??
   typedef enum logic [3:0] {
     SRAM_IDLE,
     SRAM_READ_OP,
@@ -44,8 +44,9 @@ module sram_controller_fast #(
   reg [31:0] sram_output_buf;
   reg [31:0] address_in_wait;
   reg rw_in_wait;
+  reg [3:0] cycle_counter;
   always_comb begin
-    state_next = SRAM_IDLE;
+    state_next = state_curr;
     case (state_curr)
       SRAM_IDLE: begin
         if (wb_cyc_i && wb_stb_i) begin
@@ -56,10 +57,15 @@ module sram_controller_fast #(
           end
         end
       end
-      SRAM_READ_OP, SRAM_WRITE_OP2: begin
+      SRAM_WRITE_OP2: begin
+        state_next = SRAM_IDLE;
+      end
+      SRAM_READ_OP: begin
+        if(cycle_counter == 4'd0)
         state_next = SRAM_IDLE;
       end
       SRAM_WRITE_OP: begin
+        if(cycle_counter == 4'd0)
         state_next = SRAM_WRITE_OP2;
       end
     endcase
@@ -77,12 +83,18 @@ module sram_controller_fast #(
       sram_output_buf <= 32'b0;
       address_in_wait <= 32'b0;
       rw_in_wait <= 0;
+      cycle_counter <= 4'd0;
     end else begin
       case (state_curr)
         SRAM_IDLE: begin
           address_in_wait <= wb_adr_i;
           rw_in_wait <= wb_we_i;
           sram_output_buf <= wb_dat_i;
+          if (wb_cyc_i && wb_stb_i)
+            cycle_counter <= 4'd2;
+        end
+        default: begin
+          if(cycle_counter > 4'd0) cycle_counter <= cycle_counter - 4'd1;
         end
       endcase
     end
@@ -103,7 +115,7 @@ module sram_controller_fast #(
     valid = address_in_wait == wb_adr_i && rw_in_wait == wb_we_i;
 
     // warning: do not ack when address does not match.
-    wb_ack_comb = valid && (state_curr == SRAM_READ_OP || state_curr == SRAM_WRITE_OP2);
+    wb_ack_comb = valid && (state_curr == SRAM_READ_OP || state_curr == SRAM_WRITE_OP2) && cycle_counter == 4'd0;
     case (state_curr)
       SRAM_READ_OP: begin
         re_comb = 1;

@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="8810001fs"></ZoomEndTime>
-      <Cursor1Time time="800000fs"></Cursor1Time>
+      <ZoomStartTime time="117829708fs"></ZoomStartTime>
+      <ZoomEndTime time="118274209fs"></ZoomEndTime>
+      <Cursor1Time time="117126000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="128"></NameColumnWidth>
-      <ValueColumnWidth column_width="72"></ValueColumnWidth>
+      <ValueColumnWidth column_width="68"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="31" />
+   <WVObjectSize size="33" />
    <wvobject fp_name="/tb/clk_50M" type="logic">
       <obj_property name="ElementShortName">clk_50M</obj_property>
       <obj_property name="ObjectShortName">clk_50M</obj_property>
@@ -52,25 +52,30 @@
       <obj_property name="ElementShortName">id_instr[31:0]</obj_property>
       <obj_property name="ObjectShortName">id_instr[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/icache/memory/addrb" type="array">
-      <obj_property name="ElementShortName">addrb[7:0]</obj_property>
-      <obj_property name="ObjectShortName">addrb[7:0]</obj_property>
+   <wvobject fp_name="/tb/dut/control_unit/ppl_if_id/id_instr_delayed" type="array">
+      <obj_property name="ElementShortName">id_instr_delayed[31:0]</obj_property>
+      <obj_property name="ObjectShortName">id_instr_delayed[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/icache/memory/wea" type="array">
-      <obj_property name="ElementShortName">wea[3:0]</obj_property>
-      <obj_property name="ObjectShortName">wea[3:0]</obj_property>
+   <wvobject fp_name="/tb/dut/control_unit/ppl_if_id/if_instr_delayed" type="array">
+      <obj_property name="ElementShortName">if_instr_delayed[31:0]</obj_property>
+      <obj_property name="ObjectShortName">if_instr_delayed[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/icache/memory/inst/addra" type="array">
-      <obj_property name="ElementShortName">addra[7:0]</obj_property>
-      <obj_property name="ObjectShortName">addra[7:0]</obj_property>
+   <wvobject fp_name="/tb/dut/icache/cu_data_o_delayed" type="array">
+      <obj_property name="ElementShortName">cu_data_o_delayed[31:0]</obj_property>
+      <obj_property name="ObjectShortName">cu_data_o_delayed[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/icache/memory/dina" type="array">
-      <obj_property name="ElementShortName">dina[31:0]</obj_property>
-      <obj_property name="ObjectShortName">dina[31:0]</obj_property>
+   <wvobject fp_name="/tb/dut/control_unit/ppl_if_id/instr_relay" type="array">
+      <obj_property name="ElementShortName">instr_relay[31:0]</obj_property>
+      <obj_property name="ObjectShortName">instr_relay[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/clk_10M" type="logic">
+      <obj_property name="ElementShortName">clk_10M</obj_property>
+      <obj_property name="ObjectShortName">clk_10M</obj_property>
    </wvobject>
    <wvobject fp_name="group40" type="group">
       <obj_property name="label">Base SRAM</obj_property>
       <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb/base_ram_data" type="array">
          <obj_property name="ElementShortName">base_ram_data[31:0]</obj_property>
          <obj_property name="ObjectShortName">base_ram_data[31:0]</obj_property>
@@ -95,10 +100,15 @@
          <obj_property name="ElementShortName">base_ram_we_n</obj_property>
          <obj_property name="ObjectShortName">base_ram_we_n</obj_property>
       </wvobject>
+      <wvobject fp_name="/tb/dut/dau_new_inst/sram_controller_base/wb_ack_o" type="logic">
+         <obj_property name="ElementShortName">wb_ack_o</obj_property>
+         <obj_property name="ObjectShortName">wb_ack_o</obj_property>
+      </wvobject>
    </wvobject>
    <wvobject fp_name="group41" type="group">
       <obj_property name="label">Ext SRAM</obj_property>
       <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb/ext_ram_data" type="array">
          <obj_property name="ElementShortName">ext_ram_data[31:0]</obj_property>
          <obj_property name="ObjectShortName">ext_ram_data[31:0]</obj_property>
@@ -191,10 +201,6 @@
             <obj_property name="ObjectShortName">push_btn</obj_property>
          </wvobject>
       </wvobject>
-   </wvobject>
-   <wvobject fp_name="/tb/dut/clk_10M" type="logic">
-      <obj_property name="ElementShortName">clk_10M</obj_property>
-      <obj_property name="ObjectShortName">clk_10M</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/dut/locked" type="logic">
       <obj_property name="ElementShortName">locked</obj_property>
@@ -338,14 +344,6 @@
       <obj_property name="ElementShortName">id_instr[31:0]</obj_property>
       <obj_property name="ObjectShortName">id_instr[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/control_unit/ppl_if_id/id_instr_delayed" type="array">
-      <obj_property name="ElementShortName">id_instr_delayed[31:0]</obj_property>
-      <obj_property name="ObjectShortName">id_instr_delayed[31:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb/dut/control_unit/ppl_if_id/err" type="logic">
-      <obj_property name="ElementShortName">err</obj_property>
-      <obj_property name="ObjectShortName">err</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb/dut/control_unit/ppl_mem_wb/wb_wmdata_delayed" type="array">
       <obj_property name="ElementShortName">wb_wmdata_delayed[31:0]</obj_property>
       <obj_property name="ObjectShortName">wb_wmdata_delayed[31:0]</obj_property>
@@ -354,12 +352,28 @@
       <obj_property name="ElementShortName">wb_wmdata[31:0]</obj_property>
       <obj_property name="ObjectShortName">wb_wmdata[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/dut/control_unit/ppl_mem_wb/err" type="logic">
-      <obj_property name="ElementShortName">err</obj_property>
-      <obj_property name="ObjectShortName">err</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb/dut/control_unit/ppl_mem_wb/wb_mre" type="logic">
       <obj_property name="ElementShortName">wb_mre</obj_property>
       <obj_property name="ObjectShortName">wb_mre</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/dcache/write_err" type="logic">
+      <obj_property name="ElementShortName">write_err</obj_property>
+      <obj_property name="ObjectShortName">write_err</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/dcache/dau_we_comb" type="logic">
+      <obj_property name="ElementShortName">dau_we_comb</obj_property>
+      <obj_property name="ObjectShortName">dau_we_comb</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/dcache/dau_data_departure_comb" type="array">
+      <obj_property name="ElementShortName">dau_data_departure_comb[31:0]</obj_property>
+      <obj_property name="ObjectShortName">dau_data_departure_comb[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/dcache/memory/doutb" type="array">
+      <obj_property name="ElementShortName">doutb[31:0]</obj_property>
+      <obj_property name="ObjectShortName">doutb[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/dut/dau_new_inst/sram_controller_base/cycle_counter" type="array">
+      <obj_property name="ElementShortName">cycle_counter[3:0]</obj_property>
+      <obj_property name="ObjectShortName">cycle_counter[3:0]</obj_property>
    </wvobject>
 </wave_config>

@@ -84,8 +84,8 @@ module wb_arbiter_4 #
 
 wire wbm0_sel =   wbm0_cyc_i;
 wire wbm1_sel =  (!wbm0_sel) &&  wbm1_cyc_i;
-wire wbm2_sel =  (!wbm1_sel) &&  wbm2_cyc_i;
-wire wbm3_sel =  (!wbm2_sel) &&  wbm3_cyc_i;
+wire wbm2_sel =  (!wbm0_sel && !wbm1_sel) &&  wbm2_cyc_i;
+wire wbm3_sel =  (!wbm0_sel && !wbm1_sel && !wbm2_sel) &&  wbm3_cyc_i;
 // ======================================================
 
 // master 0 =========================================

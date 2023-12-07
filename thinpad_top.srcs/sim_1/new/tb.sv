@@ -44,13 +44,17 @@ module tb;
   wire uart_dataready;  // ?????????????
   wire uart_tbre;  // ????????????
   wire uart_tsre;  // ??????????????
-
+`ifdef I_VERILOG
+  parameter BASE_RAM_INIT_FILE = "/mnt/d/github/ucore_os_lab/labcodes_answer/lab8/bin/rbl.img"; // BaseRAM ???????????????????????��??
+  parameter EXT_RAM_INIT_FILE = "/mnt/d/github/ucore_os_lab/labcodes_answer/lab8/bin/ucore.img";  // ExtRAM ???????????????????????��??
+  parameter FLASH_INIT_FILE = "/mnt/d/github/ucore_os_lab/labcodes_answer/lab8/bin/ucore.img";
+`else
   // Windows ??????��???????????��???? "D:\\foo\\bar.bin"
   parameter BASE_RAM_INIT_FILE = "D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\kernel_final.bin"; // BaseRAM ???????????????????????��??
   // parameter BASE_RAM_INIT_FILE = "D:\\github\\ucore_os_lab\\labcodes_answer\\lab8\\bin\\rbl.img"; // BaseRAM ???????????????????????��??
   parameter EXT_RAM_INIT_FILE = "D:\\github\\ucore_os_lab\\labcodes_answer\\lab8\\bin\\ucore.img";  // ExtRAM ???????????????????????��??
   parameter FLASH_INIT_FILE = "D:\\github\\ucore_os_lab\\labcodes_answer\\lab8\\bin\\ucore.img";  // Flash ???????????????????????��??
-
+`endif
   task write_u32;
     input [31:0] data;
     begin
@@ -102,13 +106,15 @@ module tb;
     //write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\read_flash.bin",
     //          32'h8010_0000);
     #350000;
-    write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\test_read_valid.bin",
-              32'h8010_0000);
+    //write_asm("D:\\github\\THU_PASS\\Organization\\supervisor-rv\\kernel\\test_read_valid.bin",
+    //         32'h8010_0000);
     uart.pc_send_byte(8'h47);
-    write_u32(32'h0);
+    //write_u32(32'h0);
     //write_u32(32'h0);
     //write_u32(32'h80001064);
-    //write_u32(32'h8000_10a8);
+    write_u32(32'h8000_10a8);
+    #5000;
+    $finish;
   end
 
   // ?????????????
@@ -208,24 +214,24 @@ module tb;
       .LB_n(ext_ram_be_n[2]),
       .UB_n(ext_ram_be_n[3])
   );
-  // Flash ???????
-  x28fxxxp30 #(
-      .FILENAME_MEM(FLASH_INIT_FILE)
-  ) flash (
-      .A   (flash_a[1+:22]),
-      .DQ  (flash_d),
-      .W_N (flash_we_n),      // Write Enable 
-      .G_N (flash_oe_n),      // Output Enable
-      .E_N (flash_ce_n),      // Chip Enable
-      .L_N (1'b0),            // Latch Enable
-      .K   (1'b0),            // Clock
-      .WP_N(flash_vpen),      // Write Protect
-      .RP_N(flash_rp_n),      // Reset/Power-Down
-      .VDD ('d3300),
-      .VDDQ('d3300),
-      .VPP ('d1800),
-      .Info(1'b1)
-  );
+   // Flash ???????
+   x28fxxxp30 #(
+       .FILENAME_MEM(FLASH_INIT_FILE)
+   ) flash (
+       .A   (flash_a[1+:22]),
+       .DQ  (flash_d),
+       .W_N (flash_we_n),      // Write Enable 
+       .G_N (flash_oe_n),      // Output Enable
+       .E_N (flash_ce_n),      // Chip Enable
+       .L_N (1'b0),            // Latch Enable
+       .K   (1'b0),            // Clock
+       .WP_N(flash_vpen),      // Write Protect
+       .RP_N(flash_rp_n),      // Reset/Power-Down
+       .VDD ('d3300),
+       .VDDQ('d3300),
+       .VPP ('d1800),
+       .Info(1'b1)
+   );
 
   initial begin
     wait (flash_byte_n == 1'b0);

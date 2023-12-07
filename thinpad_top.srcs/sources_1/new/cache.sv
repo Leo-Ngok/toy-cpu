@@ -14,6 +14,7 @@ module cache (
     input  wire [31:0] cu_data_i,
     output wire        cu_ack,
     output wire [31:0] cu_data_o,
+    output reg [31:0] cu_data_o_delayed,
     // TO DAU
     output wire        dau_we,
     output wire        dau_re,
@@ -44,7 +45,7 @@ module cache (
     reg dirty;
     reg [TAG_WIDTH -1:0] tag;
     reg [N_WAY_BW -1 : 0] lru_priority;
-    reg [BLOCK_COUNT - 1:0][31:0] blocks;
+    (* ram_style="distributed" *) reg [BLOCK_COUNT - 1:0][31:0] blocks;
   } way_t;
 
   typedef struct packed {way_t [N_WAYS - 1:0] way_arr;} set_t;
@@ -331,7 +332,11 @@ module cache (
     endcase
   end
 
-
+    always @(posedge clock) 
+        if(reset)
+            cu_data_o_delayed <= 32'b0;
+        else
+            cu_data_o_delayed <= cu_data_o;
   assign cu_ack = bypass_internal ? dau_ack : cache_hit;
   assign cu_data_o = bypass_internal ? dau_data_i : (cu_ack ? (
         cache_regs[set_idx].way_arr[way_idx].tag == tag ? 

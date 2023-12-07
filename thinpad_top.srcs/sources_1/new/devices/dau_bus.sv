@@ -505,8 +505,12 @@ module dau_new (
       .sram_we_n(ext_ram_we_n),
       .sram_be_n(ext_ram_be_n)
   );
+`ifdef SIM
+  uart_sim_controller #(
+`else
   uart_controller #(
-      .CLK_FREQ(10_000_000),
+`endif
+      .CLK_FREQ(90_000_000),
       .BAUD    (115200)
   ) uart_controller (
       .clk_i(sys_clk),
@@ -542,30 +546,30 @@ module dau_new (
 
       .intr(local_intr)
   );
-  flash_controller flash_controller (
-      .clk_i(sys_clk),
-      .rst_i(sys_rst),
+  // flash_controller flash_controller (
+  //     .clk_i(sys_clk),
+  //     .rst_i(sys_rst),
 
-      // Wishbone slave (to MUX)
-      .wb_cyc_i(wbs_cyc_o[4]),
-      .wb_stb_i(wbs_stb_o[4]),
-      .wb_ack_o(wbs_ack_i[4]),
-      .wb_adr_i(wbs_adr_o[4]),
-      .wb_dat_i(wbs_dat_o[4]),
-      .wb_dat_o(wbs_dat_i[4]),
-      .wb_sel_i(wbs_sel_o[4]),
-      .wb_we_i (wbs_we_o[4]),
+  //     // Wishbone slave (to MUX)
+  //     .wb_cyc_i(wbs_cyc_o[4]),
+  //     .wb_stb_i(wbs_stb_o[4]),
+  //     .wb_ack_o(wbs_ack_i[4]),
+  //     .wb_adr_i(wbs_adr_o[4]),
+  //     .wb_dat_i(wbs_dat_o[4]),
+  //     .wb_dat_o(wbs_dat_i[4]),
+  //     .wb_sel_i(wbs_sel_o[4]),
+  //     .wb_we_i (wbs_we_o[4]),
 
-      // Flash 存储器信号，参考 JS28F640 芯片手册
-      .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
-      .flash_d(flash_d),  // Flash 数据
-      .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
-      .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
-      .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
-      .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
-      .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
-      .flash_byte_n(flash_byte_n) // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
-  );
+  //     // Flash 存储器信号，参考 JS28F640 芯片手册
+  //     .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
+  //     .flash_d(flash_d),  // Flash 数据
+  //     .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
+  //     .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
+  //     .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
+  //     .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
+  //     .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
+  //     .flash_byte_n(flash_byte_n) // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
+  // );
   display_controller disp (
       .clk_i(sys_clk),
       .rst_i(sys_rst),

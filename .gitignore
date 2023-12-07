@@ -9,3 +9,17 @@ thinpad_top.sim/
 /.lint/
 /.Xil
 /.Xilinx
+**/obj_dir/**
+**/**.zip
+**/sim
+**/*.fst
+**/bin/**
+**/uart_sim.sv
+**/sram_sim.sv
+**/sim_main.cpp
+**/out.txt
+**/out_err.txt
+**/compile.sh
+**/*.vcd
+**/sram_fake.sv
+**/tb_compiled.sv

@@ -139,89 +139,6 @@ module csr(
     // SETS NEW CSR VALUES WHERE APPROPRIATE
     always_comb begin
         wdata_internal = (instr[14]) ? {27'b0, instr[19:15]} : wdata; 
-        // case(address) 
-        // // mstatus: MPP[12:11] only for monitor
-        // // for bootloader, 
-        // // Bootloader disables FS, clear MPIE also, so make FS[14:13], MPIE[7] writable.
-        // // Refer to boot_first_hart in rbl.
-        // 12'h300: wdata_comb = {
-        //     mstatus[31:15], wdata_internal[14:11], 
-        //     mstatus[10:8], wdata_internal[7], 
-        //     mstatus[6:0]};
-        // // medeleg:
-        // 12'h302: wdata_comb = { 
-        //     medeleg[31:16], wdata_internal[15],     // Store / AMO page fault
-        //     medeleg[14],    wdata_internal[13:12], // load, instruction page fault
-        //     medeleg[11:10], wdata_internal[9:0]}; // secall, uecall, store acc fault, store misalign, load acc fault, load misalign, bp, illegal instr, instr acc fault, instr misalign
-        // // mideleg: STIE, SSIE, SEIE
-        // 12'h303: wdata_comb = {
-        //     mideleg[31:10], wdata_internal[9], // SEIE
-        //     mideleg[8:6], wdata_internal[5],   // STIE
-        //     mideleg[4:2], wdata_internal[1],   // SSIE
-        //     mideleg[0]};
-        // // mie: MTIE only for monitor
-        // // Support for MSIE is provided for bootloader (though useless)
-        // 12'h304: wdata_comb = wdata_internal; /*{
-        //     mie[31: 8], wdata_internal[7], // MTIE
-        //     mie[6:4], wdata_internal[3],   // MSIE
-        //     mie[2:0]};*/
-        // // mtvec
-        // 12'h305: wdata_comb = wdata_internal;
-
-        // // mscratch
-        // 12'h340: wdata_comb = wdata_internal;
-        // // mepc
-        // 12'h341: wdata_comb = wdata_internal;
-        // // mcause
-        // 12'h342: wdata_comb = wdata_internal;
-        // // mtval
-        // 12'h343: wdata_comb = wdata_internal;
-        // // mip: MTIP only for monitor
-        // // add support for MSIP, since MSIE is set by bootloader.
-        // 12'h344: wdata_comb = wdata_internal; /*{
-        //     mip[31: 4],// wdata_internal[7], 
-        //     //mip[6:4], 
-        //     wdata_internal[3], 
-        //     mip[2:0]};*/
-        
-        // // sstatus
-        // // Disassemble uCore and you'll realize that
-        // // only sie(1), spp(8) and sum(18) are needed
-        // 12'h100: wdata_comb = {
-        //     mstatus[31:19], wdata_internal[18], 
-        //     mstatus[17: 9], wdata_internal[ 8],
-        //     mstatus[ 7: 2], wdata_internal[ 1],
-        //     mstatus[0]
-        // };
-        // // sie
-        // // only ssie(1) and stie(5) are needed.
-        // 12'h104: wdata_comb = wdata_internal; /*{
-        //     mie[31:6], wdata_internal[5],
-        //     mie[4:2], wdata_internal[1],
-        //     mie[0]
-        // };*/
-        // // stvec
-        // 12'h105: wdata_comb = wdata_internal;
-
-        // // sscratch
-        // 12'h140: wdata_comb = wdata_internal;
-        // // sepc
-        // 12'h141: wdata_comb = wdata_internal;
-        // // scause
-        // 12'h142: wdata_comb = wdata_internal;
-        // // stval
-        // 12'h143: wdata_comb = wdata_internal;
-        // // sip
-        // 12'h144: wdata_comb = wdata_internal; /*{
-        //     mip[31:6], wdata_internal[5],
-        //     mip[4:2], wdata_internal[1],
-        //     mip[0]
-        // };*/
-
-        // // satp
-        // 12'h180: wdata_comb = wdata_internal;
-        // default: wdata_comb = 32'b0;
-        // endcase
     end
 
 
@@ -383,7 +300,7 @@ module csr(
             if(take_ip_comb) begin
                 if(
                     // exceptions.
-                    (!cause_comb[31] && privilege != MACHINE && medeleg[cause_comb[5:0]]) ||
+                    (!cause_comb[31] && privilege != MACHINE && medeleg[cause_comb[4:0]]) ||
                     // interrupts.
                     (cause_comb[31] && next_priv == SUPERVISOR)
                 ) begin

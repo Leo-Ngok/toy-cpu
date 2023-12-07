@@ -82,7 +82,7 @@ module mmu_iter (
         end
       end
       FETCH_ROOT_PAGE: begin
-        if (va == va_req) begin
+        // if (va == va_req) begin
           if (data_ack_i) begin
             if (page_fault_marker == 1) begin
               next_state = WAIT;
@@ -90,20 +90,23 @@ module mmu_iter (
               next_state = FETCH_2ND_PAGE;
             end
           end
-        end else begin
-          next_state = WAIT;
-        end
+        // end else begin
+        //   next_state = WAIT;
+        // end
       end
       FETCH_2ND_PAGE: begin
-        if (va == va_req) begin
+        //if (va == va_req) begin
           if (data_ack_i) begin
             next_state = WAIT;
           end
-        end else begin
-          next_state = WAIT;
-        end
+        // end else begin
+        //   next_state = WAIT;
+        // end
       end
     endcase
+    if(va_req != va) begin
+      next_state = WAIT;
+    end
   end
 
   reg        data_re_comb;

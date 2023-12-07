@@ -1,74 +1,74 @@
-module next_instr_ptr (
-    input wire clock,
-    input wire reset,
+// module next_instr_ptr (
+//     input wire clock,
+//     input wire reset,
 
-    input  wire        mem_ack,
-    input  wire [31:0] curr_ip,
-    input  wire [31:0] curr_instr,
-    output reg  [31:0] next_ip_pred,
-    output reg         jump_pred      // Whether branching is chosen for prediction
+//     input  wire        mem_ack,
+//     input  wire [31:0] curr_ip,
+//     input  wire [31:0] curr_instr,
+//     output reg  [31:0] next_ip_pred,
+//     output reg         jump_pred      // Whether branching is chosen for prediction
 
-);
+// );
 
-  parameter BRANCH = 32'b????_????_????_????_????_????_?110_0011;
-  parameter JAL = 32'b????_????_????_????_????_????_?110_1111;
-  parameter JALR = 32'b????_????_????_????_????_????_?110_0111;
-  parameter ECALL = 32'b0000_0000_0000_00000_000_00000_111_0011;
-  parameter EBREAK = 32'b0000_0000_0001_00000_000_00000_111_0011;
-  parameter MRET = 32'b0011000_00010_00000_000_00000_111_0011;
-  parameter SRET = 32'b0001000_00010_00000_000_00000_111_0011;
-  parameter HALT = 32'b0;
-  reg [31:0] branch_ip;
-  always_comb begin
-    jump_pred = 0;
-    branch_ip = 32'b0;
-    // if(mem_ack) begin
-    casez (curr_instr)
-      HALT: begin
-        next_ip_pred = curr_ip;
-      end
-      BRANCH: begin
-        // TODO: analyze different branch commands,
-        // and add more sophisticated prediction logic.
-        // Currently, we use BTFNT
-        // i.e. Backward taken,
-        // Forward not taken.
-        // For example, beqz x0, offset is always taken.
-        // bnez x0, offset is never taken.
-        // in the instruction,
-        // imm[12|10:5]|rs2, rs1| fn3 | imm[4:1|11] | opcode
-        // lower 13 bits are provided, so sign extend the upper 19 bits.
-        // 12 -> 31
-        // 11 -> 7
-        // 10:5 -> 30:25
-        // 4:1 -> 11:8
-        // 31:13              12               11           10:5                4:1
-        branch_ip = curr_ip + { {19{curr_instr[31]}}, curr_instr[31], curr_instr[7], curr_instr[30:25], curr_instr[11:8], 1'b0};
-        if (branch_ip <= curr_ip) begin
-          next_ip_pred = branch_ip;
-          jump_pred = 1;
-        end else begin
-          next_ip_pred = curr_ip + 32'd4;
-        end
-      end
-      JAL: begin
-        // Refer to ISA p.16.
-        // imm[20|10:1|11|19:12] | rd | opcode
-        next_ip_pred = curr_ip + { 
-                {11{curr_instr[31]}}, // sign extend
-                curr_instr[31], curr_instr[19:12], curr_instr[20],
-                curr_instr[30:21], 1'b0};
-      end
-      JALR, MRET, SRET, ECALL, EBREAK: begin
-        // Nope, we can do nothing, sad :(
-        next_ip_pred = curr_ip;
-      end
-      default: begin
-        next_ip_pred = curr_ip + 32'd4;
-      end
-    endcase
-  end
-endmodule
+//   parameter BRANCH = 32'b????_????_????_????_????_????_?110_0011;
+//   parameter JAL = 32'b????_????_????_????_????_????_?110_1111;
+//   parameter JALR = 32'b????_????_????_????_????_????_?110_0111;
+//   parameter ECALL = 32'b0000_0000_0000_00000_000_00000_111_0011;
+//   parameter EBREAK = 32'b0000_0000_0001_00000_000_00000_111_0011;
+//   parameter MRET = 32'b0011000_00010_00000_000_00000_111_0011;
+//   parameter SRET = 32'b0001000_00010_00000_000_00000_111_0011;
+//   parameter HALT = 32'b0;
+//   reg [31:0] branch_ip;
+//   always_comb begin
+//     jump_pred = 0;
+//     branch_ip = 32'b0;
+//     // if(mem_ack) begin
+//     casez (curr_instr)
+//       HALT: begin
+//         next_ip_pred = curr_ip;
+//       end
+//       BRANCH: begin
+//         // TODO: analyze different branch commands,
+//         // and add more sophisticated prediction logic.
+//         // Currently, we use BTFNT
+//         // i.e. Backward taken,
+//         // Forward not taken.
+//         // For example, beqz x0, offset is always taken.
+//         // bnez x0, offset is never taken.
+//         // in the instruction,
+//         // imm[12|10:5]|rs2, rs1| fn3 | imm[4:1|11] | opcode
+//         // lower 13 bits are provided, so sign extend the upper 19 bits.
+//         // 12 -> 31
+//         // 11 -> 7
+//         // 10:5 -> 30:25
+//         // 4:1 -> 11:8
+//         // 31:13              12               11           10:5                4:1
+//         branch_ip = curr_ip + { {19{curr_instr[31]}}, curr_instr[31], curr_instr[7], curr_instr[30:25], curr_instr[11:8], 1'b0};
+//         if (branch_ip <= curr_ip) begin
+//           next_ip_pred = branch_ip;
+//           jump_pred = 1;
+//         end else begin
+//           next_ip_pred = curr_ip + 32'd4;
+//         end
+//       end
+//       JAL: begin
+//         // Refer to ISA p.16.
+//         // imm[20|10:1|11|19:12] | rd | opcode
+//         next_ip_pred = curr_ip + { 
+//                 {11{curr_instr[31]}}, // sign extend
+//                 curr_instr[31], curr_instr[19:12], curr_instr[20],
+//                 curr_instr[30:21], 1'b0};
+//       end
+//       JALR, MRET, SRET, ECALL, EBREAK: begin
+//         // Nope, we can do nothing, sad :(
+//         next_ip_pred = curr_ip;
+//       end
+//       default: begin
+//         next_ip_pred = curr_ip + 32'd4;
+//       end
+//     endcase
+//   end
+// endmodule
 
 module dyn_pc_pred (
     input wire clock,
@@ -109,9 +109,10 @@ module dyn_pc_pred (
   reg [31:0] query_target_c;
   // Choose the line to be replaced.
   always_comb begin
+    lru_replace_idx = 2'd3;
     for (int i_way = 0; i_way < 4; ++i_way) begin
       if (entries[source_index][i_way].lru_priority == 2'b0) begin
-        lru_replace_idx = i_way;
+        lru_replace_idx = i_way[1:0];
         break;
       end
     end

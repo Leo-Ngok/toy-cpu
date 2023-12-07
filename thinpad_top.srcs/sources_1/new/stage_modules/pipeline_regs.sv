@@ -165,10 +165,6 @@ module if_id (
     else if (stall_relay) id_instr_delayed = instr_relay;
     else id_instr_delayed = if_instr_delayed;
   end
-  reg err;
-  always @(posedge clock)
-    if (reset) err <= 0;
-    else err <= id_instr_delayed != id_instr;
 endmodule
 
 module id_ex (
@@ -464,7 +460,7 @@ module ex_mem (
       mem_dmmu_addr_misaligned  <= 1'b0;
       // 2. Write back
       mem_we                    <= 1'b1;
-      mem_wraddr                <= 32'b0;
+      mem_wraddr                <= 5'b0;
       mem_wdata                 <= 32'b0;
 
       // Initial state configurations.
@@ -502,7 +498,7 @@ module ex_mem (
 
         // 2. Write back
         mem_we                    <= 1'b1;
-        mem_wraddr                <= 32'b0;
+        mem_wraddr                <= 5'b0;
         mem_wdata                 <= 32'b0;
 
         // Debug only.
@@ -652,8 +648,4 @@ module mem_wb (
     else if (stall_relay) wb_wmdata_delayed = mem_data_relay;
     else wb_wmdata_delayed = mem_wmdata_delayed;
   end
-  reg err;
-  always @(posedge clock)
-    if (reset) err <= 0;
-    else err <= wb_mre && (wb_wmdata_delayed != wb_wmdata);
 endmodule

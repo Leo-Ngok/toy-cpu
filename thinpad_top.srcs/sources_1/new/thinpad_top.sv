@@ -84,6 +84,7 @@ module thinpad_top (
 
   // PLL 分频示例
   logic locked, clk_10M, clk_20M;
+`ifndef SIM
   pll_example clock_gen (
       // Clock in ports
       .clk_in1(clk_50M),  // 外部时钟输入
@@ -102,12 +103,16 @@ module thinpad_top (
     if (~locked) reset_of_clk10M <= 1'b1;
     else reset_of_clk10M <= 1'b0;
   end
+`endif
   logic sys_clk;
   logic sys_rst;
-
+`ifndef SIM
   assign sys_clk  = clk_10M;
   assign sys_rst  = reset_of_clk10M;
-
+`else
+  assign sys_clk = clk_50M;
+  assign sys_rst = reset_btn;
+`endif
   assign uart_rdn = 1'b1;
   assign uart_wrn = 1'b1;
 
@@ -179,8 +184,11 @@ module thinpad_top (
 
   wire step;
 
-
+`ifdef SIM
+cache icache(
+`else
   cache_alt icache (
+`endif
       .clock(sys_clk),
       .reset(sys_rst),
 
@@ -207,8 +215,11 @@ module thinpad_top (
       .dau_ack(dau_instr_ack),
       .dau_data_i(dau_instr_data)
   );
-
-  cache_alt dcache (
+`ifdef SIM
+cache dcache (
+`else
+cache_alt dcache (
+`endif
       .clock(sys_clk),
       .reset(sys_rst),
 
@@ -242,29 +253,30 @@ module thinpad_top (
       .sys_rst(sys_rst),
 
       // TODO
-      .master0_we_i ('0),
-      .master0_re_i (dmmu_re),
-      .master0_adr_i(dmmu_addr),
-      .master0_sel_i(4'hF),
-      .master0_dat_i(32'b0),
-      .master0_ack_o(dmmu_ack),
-      .master0_dat_o(dmmu_data),
-
+      .master0_we_i (dau_we),
+      .master0_re_i (dau_re),
+      .master0_adr_i(dau_addr),
+      .master0_sel_i(dau_byte_en),
+      .master0_dat_i(dau_data_write),
+      .master0_ack_o(dau_ack),
+      .master0_dat_o(dau_data_read),
+      
       .master1_we_i ('0),
-      .master1_re_i (immu_re),
-      .master1_adr_i(immu_addr),
+      .master1_re_i (dmmu_re),
+      .master1_adr_i(dmmu_addr),
       .master1_sel_i(4'hF),
       .master1_dat_i(32'b0),
-      .master1_ack_o(immu_ack),
-      .master1_dat_o(immu_data),
+      .master1_ack_o(dmmu_ack),
+      .master1_dat_o(dmmu_data),
 
-      .master2_we_i (dau_we),
-      .master2_re_i (dau_re),
-      .master2_adr_i(dau_addr),
-      .master2_sel_i(dau_byte_en),
-      .master2_dat_i(dau_data_write),
-      .master2_ack_o(dau_ack),
-      .master2_dat_o(dau_data_read),
+      .master2_we_i ('0),
+      .master2_re_i (immu_re),
+      .master2_adr_i(immu_addr),
+      .master2_sel_i(4'hF),
+      .master2_dat_i(32'b0),
+      .master2_ack_o(immu_ack),
+      .master2_dat_o(immu_data),
+
 
       .master3_we_i ('0),
       .master3_re_i (dau_instr_re),
