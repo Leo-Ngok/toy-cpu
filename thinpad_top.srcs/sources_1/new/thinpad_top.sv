@@ -311,6 +311,7 @@ module thinpad_top (
       .vga_vsync(video_vsync),
       .vga_video_de(video_de),
       .pixel(pixel),
+      .clk_50M(clk_50M),
 
       .local_intr(local_intr)
   );

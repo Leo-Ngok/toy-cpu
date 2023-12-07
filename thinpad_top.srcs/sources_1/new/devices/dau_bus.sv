@@ -115,6 +115,7 @@ module dau_new (
     input  wire        vga_vsync,
     input  wire        vga_video_de,
     output reg [7:0] pixel, // VGA 输出像素数据
+    input wire clk_50M,
     
     // CLINT interrupt signal
     output wire        local_intr
@@ -586,8 +587,15 @@ module dau_new (
       .wb_dat_i(wbs_dat_o[5]),
       .wb_dat_o(wbs_dat_i[5]),
       .wb_sel_i(wbs_sel_o[5]),
-      .wb_we_i (wbs_we_o[5])
+      .wb_we_i (wbs_we_o[5]),
 
       /* TODO: Other ports in interest. */
+      .vga_clk(clk_50M),
+      .vga_hdata(vga_hdata),
+      .vga_vdata(vga_vdata),
+      .vga_hsync(vga_hsync),
+      .vga_vsync(vga_vsync),
+      .vga_video_de(vga_video_de),
+      .pixel(pixel)
   );
 endmodule
