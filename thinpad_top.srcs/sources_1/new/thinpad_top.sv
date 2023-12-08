@@ -184,9 +184,13 @@ module thinpad_top (
 
   wire step;
 
+  logic [11:0] hdata;
+  logic [9:0] vdata;
+  logic [7:0] pixel;  // VGA 输出像素数据
 `ifdef SIM
 cache icache(
-`else
+`else  // VGA
+
   cache_alt icache (
 `endif
       .clock(sys_clk),
@@ -313,6 +317,14 @@ cache_alt dcache (
       .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
       .flash_byte_n(flash_byte_n), // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
 
+      .vga_hdata(hdata),
+      .vga_vdata(vdata),
+      .vga_hsync(video_hsync),
+      .vga_vsync(video_vsync),
+      .vga_video_de(video_de),
+      .pixel(pixel),
+      .clk_50M(clk_50M),
+
       .local_intr(local_intr)
   );
   register_file registers (
@@ -408,17 +420,22 @@ cache_alt dcache (
   );
 
 
+
+  // =========== VGA begin =========== 
   // 图像输出演示，分辨率 800x600@75Hz，像素时钟为 50MHz
-  logic [11:0] hdata;
-  assign video_red   = hdata < 266 ? 3'b111 : 0;  // 红色竖条
-  assign video_green = hdata < 532 && hdata >= 266 ? 3'b111 : 0;  // 绿色竖条
-  assign video_blue  = hdata >= 532 ? 2'b11 : 0;  // 蓝色竖条
+
+  //   assign video_red   = hdata < 266 ? 3'b111 : 0;  // 红色竖条
+  //   assign video_green = hdata < 532 && hdata >= 266 ? 3'b111 : 0;  // 绿色竖条
+  //   assign video_blue  = hdata >= 532 ? 2'b11 : 0;  // 蓝色竖条
+  assign video_red   = pixel[7:5];
+  assign video_green = pixel[4:2];
+  assign video_blue  = pixel[1:0];
   assign video_clk   = clk_50M;
   vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
       .clk        (clk_50M),
       .rst        (sys_rst),
       .hdata      (hdata),        // 横坐标
-      .vdata      (),             // 纵坐标
+      .vdata      (vdata),        // 纵坐标
       .hsync      (video_hsync),
       .vsync      (video_vsync),
       .data_enable(video_de)

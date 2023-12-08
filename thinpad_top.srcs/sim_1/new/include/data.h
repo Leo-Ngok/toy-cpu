@@ -41,7 +41,7 @@
 
 `else 
 
-`define ADDRBUS_dim 24 // TODO: Change it back to 22
+`define ADDRBUS_dim 22 // TODO: Change it back to 22
 
 `endif
 

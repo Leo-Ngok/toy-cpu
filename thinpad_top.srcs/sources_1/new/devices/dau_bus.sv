@@ -108,8 +108,17 @@ module dau_new (
     output wire flash_we_n,  // Flash 写使能信号，低有效
     output wire flash_byte_n, // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
 
+    // VGA
+    input  wire [11:0] vga_hdata,
+    input  wire [ 9:0] vga_vdata,
+    input  wire        vga_hsync,
+    input  wire        vga_vsync,
+    input  wire        vga_video_de,
+    output reg [7:0] pixel, // VGA 输出像素数据
+    input wire clk_50M,
+    
     // CLINT interrupt signal
-    output wire local_intr
+    output wire        local_intr
 );
   // This module could be illustrated as the diagram below.
 
@@ -248,7 +257,7 @@ module dau_new (
   };
 
   parameter [31:0] slave_mask[0:5] = {
-    32'hFFC0_0000, 32'hFFC0_0000, 32'hFFFF_0000, 32'hFFFF_0000, 32'hFFFF_F800, 32'hFFFE_0000
+    32'hFFC0_0000, 32'hFFC0_0000, 32'hFFFF_0000, 32'hFFFF_0000, 32'hFF80_0000, 32'hFFF0_0000
   };
   /* =========== MUX for Instruction begin =========== */
 
@@ -546,30 +555,30 @@ module dau_new (
 
       .intr(local_intr)
   );
-  // flash_controller flash_controller (
-  //     .clk_i(sys_clk),
-  //     .rst_i(sys_rst),
+  flash_controller flash_controller (
+      .clk_i(sys_clk),
+      .rst_i(sys_rst),
 
-  //     // Wishbone slave (to MUX)
-  //     .wb_cyc_i(wbs_cyc_o[4]),
-  //     .wb_stb_i(wbs_stb_o[4]),
-  //     .wb_ack_o(wbs_ack_i[4]),
-  //     .wb_adr_i(wbs_adr_o[4]),
-  //     .wb_dat_i(wbs_dat_o[4]),
-  //     .wb_dat_o(wbs_dat_i[4]),
-  //     .wb_sel_i(wbs_sel_o[4]),
-  //     .wb_we_i (wbs_we_o[4]),
+      // Wishbone slave (to MUX)
+      .wb_cyc_i(wbs_cyc_o[4]),
+      .wb_stb_i(wbs_stb_o[4]),
+      .wb_ack_o(wbs_ack_i[4]),
+      .wb_adr_i(wbs_adr_o[4]),
+      .wb_dat_i(wbs_dat_o[4]),
+      .wb_dat_o(wbs_dat_i[4]),
+      .wb_sel_i(wbs_sel_o[4]),
+      .wb_we_i (wbs_we_o[4]),
 
-  //     // Flash 存储器信号，参考 JS28F640 芯片手册
-  //     .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
-  //     .flash_d(flash_d),  // Flash 数据
-  //     .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
-  //     .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
-  //     .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
-  //     .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
-  //     .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
-  //     .flash_byte_n(flash_byte_n) // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
-  // );
+      // Flash 存储器信号，参考 JS28F640 芯片手册
+      .flash_a(flash_a),  // Flash 地址，a0 仅在 8bit 模式有效，16bit 模式无意义
+      .flash_d(flash_d),  // Flash 数据
+      .flash_rp_n(flash_rp_n),  // Flash 复位信号，低有效
+      .flash_vpen(flash_vpen),  // Flash 写保护信号，低电平时不能擦除、烧写
+      .flash_ce_n(flash_ce_n),  // Flash 片选信号，低有效
+      .flash_oe_n(flash_oe_n),  // Flash 读使能信号，低有效
+      .flash_we_n(flash_we_n),  // Flash 写使能信号，低有效
+      .flash_byte_n(flash_byte_n) // Flash 8bit 模式选择，低有效。在使用 flash 的 16 位模式时请设为 1
+  );
   display_controller disp (
       .clk_i(sys_clk),
       .rst_i(sys_rst),
@@ -582,8 +591,15 @@ module dau_new (
       .wb_dat_i(wbs_dat_o[5]),
       .wb_dat_o(wbs_dat_i[5]),
       .wb_sel_i(wbs_sel_o[5]),
-      .wb_we_i (wbs_we_o[5])
+      .wb_we_i (wbs_we_o[5]),
 
       /* TODO: Other ports in interest. */
+      .vga_clk(clk_50M),
+      .vga_hdata(vga_hdata),
+      .vga_vdata(vga_vdata),
+      .vga_hsync(vga_hsync),
+      .vga_vsync(vga_vsync),
+      .vga_video_de(vga_video_de),
+      .pixel(pixel)
   );
 endmodule

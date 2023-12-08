@@ -1,10 +1,10 @@
 // Copyright 1986-2019 Xilinx, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
 // Tool Version: Vivado v.2019.2 (win64) Build 2708876 Wed Nov  6 21:40:23 MST 2019
-// Date        : Sat Dec  2 10:10:14 2023
+// Date        : Sat Dec  2 10:10:13 2023
 // Host        : LAPTOP-92IKODO2 running 64-bit major release  (build 9200)
-// Command     : write_verilog -force -mode synth_stub
-//               D:/github/cod23-grp08/thinpad_top.srcs/sources_1/ip/cache_ram/cache_ram_stub.v
+// Command     : write_verilog -force -mode synth_stub -rename_top cache_ram -prefix
+//               cache_ram_ cache_ram_stub.v
 // Design      : cache_ram
 // Purpose     : Stub declaration of top-level module interface
 // Device      : xc7a100tfgg676-2L

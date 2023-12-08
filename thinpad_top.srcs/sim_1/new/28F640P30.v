@@ -1497,12 +1497,12 @@ module MemoryModule(Info);
 
     task LoadMemory;                                // Initialize and load the memory from a file
     integer i;     
-    integer fd, init_size;     
+    integer fd, init_size;         // Memory Init
+        reg [15:0] tmp;
       begin
         #0 if (Info) $display("[%t] Inizialize the Memory to default value",$time);
       
-        for (i = 0; i < `MEMORY_dim; i = i + 1)  memory[i] = {16{`HIGH}};    // Memory Init
-        
+        for (i = 0; i < `MEMORY_dim; i = i + 1)  memory[i] = {16{`HIGH}};
         if (FILENAME_MEM !== "") begin
             // $readmemb(FILENAME_MEM, memory);
             fd = $fopen(FILENAME_MEM ,"rb");
@@ -1510,8 +1510,10 @@ module MemoryModule(Info);
               if (Info) $display("[%t] Load Memory from file: %s",$time, FILENAME_MEM);
               init_size = $fread(memory, fd) / 2;
               $fclose(fd);
-              for (i = 0; i < init_size; i = i + 1)
-                memory[i] = {memory[i][0+:8],memory[i][8+:8]};
+              for (i = 0; i < init_size; i = i + 1) begin
+                tmp = {memory[i][0+:8], memory[i][8+:8]};
+                memory[i] = tmp;
+                end
             end
             else begin
               if (Info) $display("[%t] Warning: File: %s not found",$time, FILENAME_MEM);
