@@ -219,24 +219,20 @@ module display_controller #(
   reg [14:0] v_norm;
   reg [14:0] h_norm;
   reg [31:0] pixels_sel;
-  reg [14:0] read_addr_prev;
   reg [12:0] read_addr_ram;
+  reg [14:0] read_addr_prev;
   always_comb begin
     v_norm = {7'b0,vga_vdata[9:2]};
     h_norm = {5'b0,vga_hdata[11:2]};
     read_addr = (v_norm << 7) + (v_norm << 6) + (v_norm << 3) + h_norm;
-    if(read_addr == 15'd0) begin
-      read_addr_prev = 15'd29999;
-    end else begin
-      read_addr_prev = read_addr - 15'd1;
-    end
+    read_addr_prev = (vga_hdata[1:0] == 2'd3) ? read_addr + 14'd1 : read_addr;
     pixels_sel = read_data[!cur_vram_exposed];
-    case(read_addr_prev[1:0])
+    case(read_addr[1:0])
     2'd0: pixel = pixels_sel[7:0];
     2'd1: pixel = pixels_sel[15:8];
     2'd2: pixel = pixels_sel[23:16];
     2'd3: pixel = pixels_sel[31:24];
     endcase
-    read_addr_ram = read_addr[14:2];
+    read_addr_ram = read_addr_prev[14:2];
   end
 endmodule
