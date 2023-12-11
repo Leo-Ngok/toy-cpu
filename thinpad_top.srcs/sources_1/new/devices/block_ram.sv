@@ -157,7 +157,6 @@ module display_controller #(
   parameter HSIZE = 800;
   parameter VSIZE = 600;
 
-  state_t state;
   reg cur_vram_exposed;
   reg [3:0] vram_we;
   reg [12:0] write_addr;
