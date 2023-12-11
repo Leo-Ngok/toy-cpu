@@ -519,7 +519,7 @@ module dau_new (
 `else
   uart_controller #(
 `endif
-      .CLK_FREQ(5_000_000),
+      .CLK_FREQ(60_000_000),
       .BAUD    (115200)
   ) uart_controller (
       .clk_i(sys_clk),
