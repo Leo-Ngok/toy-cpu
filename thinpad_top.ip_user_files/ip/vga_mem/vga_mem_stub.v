@@ -3,8 +3,8 @@
 // Tool Version: Vivado v.2019.2 (win64) Build 2708876 Wed Nov  6 21:40:23 MST 2019
 // Date        : Fri Dec  8 04:59:10 2023
 // Host        : LAPTOP-92IKODO2 running 64-bit major release  (build 9200)
-// Command     : write_verilog -force -mode synth_stub
-//               d:/github/cod23-grp08/thinpad_top.srcs/sources_1/ip/vga_mem/vga_mem_stub.v
+// Command     : write_verilog -force -mode synth_stub -rename_top vga_mem -prefix
+//               vga_mem_ vga_mem_stub.v
 // Design      : vga_mem
 // Purpose     : Stub declaration of top-level module interface
 // Device      : xc7a100tfgg676-2L

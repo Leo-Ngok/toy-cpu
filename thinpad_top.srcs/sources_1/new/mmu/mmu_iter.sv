@@ -45,6 +45,7 @@ module mmu_iter (
   state_t mmu_state;
   state_t next_state;
 
+  //reg [5:0] cycle_counter;
   always_ff @(posedge clock) begin
     if (reset) begin
       mmu_state <= WAIT;
@@ -77,14 +78,14 @@ module mmu_iter (
     next_state = mmu_state;  // WAIT;
     case (mmu_state)
       WAIT: begin
-        if (acc && !tlb_valid) begin
+        if (acc && !tlb_valid /*&& cycle_counter == 6'b0*/) begin
           next_state = FETCH_ROOT_PAGE;
         end
       end
       FETCH_ROOT_PAGE: begin
         // if (va == va_req) begin
           if (data_ack_i) begin
-            if (page_fault_marker == 1) begin
+            if (data_arrival_i[0] == 1'b0) begin
               next_state = WAIT;
             end else begin
               next_state = FETCH_2ND_PAGE;
@@ -198,18 +199,21 @@ module mmu_iter (
       end
     endcase
   end
-
   always_ff @(posedge clock) begin
     if (reset) begin
       data_page_pte_reg <= 32'b0;
       second_page_pte_reg <= 32'b0;
       va_req <= 32'b0;
+      // cycle_counter <= 6'b0;
     end else begin
       case (mmu_state)
         WAIT: begin
-          if (acc && !tlb_valid) begin
+          if (acc && !tlb_valid /*&& cycle_counter == 6'b0*/) begin
             va_req <= va;
+            // cycle_counter <= 6'd63;
           end
+          // if(cycle_counter !=6'b0)
+          // cycle_counter <= cycle_counter - 6'd1;
         end
         FETCH_ROOT_PAGE: begin
           if (data_ack_i) begin

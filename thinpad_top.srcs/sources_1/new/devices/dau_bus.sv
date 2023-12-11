@@ -519,7 +519,7 @@ module dau_new (
 `else
   uart_controller #(
 `endif
-      .CLK_FREQ(75_000_000),
+      .CLK_FREQ(5_000_000),
       .BAUD    (115200)
   ) uart_controller (
       .clk_i(sys_clk),
@@ -555,6 +555,7 @@ module dau_new (
 
       .intr(local_intr)
   );
+`ifndef SIM
   flash_controller flash_controller (
       .clk_i(sys_clk),
       .rst_i(sys_rst),
@@ -602,4 +603,5 @@ module dau_new (
       .vga_video_de(vga_video_de),
       .pixel(pixel)
   );
+`endif
 endmodule

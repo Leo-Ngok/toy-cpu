@@ -203,7 +203,7 @@ module id_ex (
 
     /*input wire [ 3:0] id_mbe,
     output reg [ 3:0] ex_mbe, */  // No, don't do this.
-
+    output reg [31:0] ex_maddr,
     input  wire [31:0] id_mdata,
     output reg  [31:0] ex_mdata,
 
@@ -277,6 +277,7 @@ module id_ex (
       error                    <= 1'b0;
 
       ex_alt_next_ip           <= `START_ADDR + 32'd4;
+      ex_maddr                 <= 32'b0;
     end else begin
       // error <= stall && bubble;
       if (bubble) begin
@@ -311,6 +312,7 @@ module id_ex (
         ex_we                    <= 1'b1;
         ex_wraddr                <= 5'b0;
         ex_alt_next_ip           <= bubble_ip + 4;
+      ex_maddr                 <= 32'b0;
       end else if (!stall) begin
         // 0. Control
         ex_ip                    <= id_ip;
@@ -343,6 +345,7 @@ module id_ex (
         ex_wraddr                <= id_wraddr;
 
         ex_alt_next_ip           <= id_alt_next_ip;
+        ex_maddr                 <= id_op1 + id_imm;
       end
     end
   end

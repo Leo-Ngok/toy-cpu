@@ -129,6 +129,7 @@ module cu_pipeline (
 
   wire        alu_mwe;
   wire        alu_mre;
+  wire [31:0] alu_maddr;
   wire [31:0] alu_mwdata;
 
   wire        alu_csracc;
@@ -302,7 +303,7 @@ module cu_pipeline (
   // ========================================== IF2 ==========================================
   assign icache_addr_o = if2_ppc;
   assign icache_bypass_o = 0;
-  assign icache_re_o = !if2_is_bubble;
+  assign icache_re_o = !if2_is_bubble && !if2_page_fault;
 
   // ========================================== ID ==========================================
   assign rf_raddr1 = decoder_raddr1;
@@ -364,7 +365,7 @@ module cu_pipeline (
   );
   mem_data_offset_adjust mem_write_adjust (
       .mem_we(alu_mwe),
-      .write_address(alu_op1 + ex_imm),
+      .write_address(alu_maddr),
       .instr(alu_instr),
 
       .in_data (alu_op2),
@@ -382,7 +383,7 @@ module cu_pipeline (
       .reset(rst),
 
       .satp(satp),
-      .va  (alu_op1 + ex_imm),
+      .va  (alu_maddr),
       .pa  (dmmu_addr_o),
 
       .data_we_i(alu_mwe),
@@ -447,7 +448,9 @@ module cu_pipeline (
       .rdata(mem_csrwb),
 
       .curr_ip(mem_ip),
-      .timer_interrupt(!dau_cache_clear && local_intr),
+      .mem_mwe(1'b0),
+      .mem_flush(dau_cache_clear),
+      .timer_interrupt(local_intr),
       .mtime(mtime),
 
       .take_ip(mem_csr_take_ip),
@@ -473,8 +476,8 @@ module cu_pipeline (
   wire [31:0] pte_debug;
 
   assign dcache_addr_o = mem_dmmu_pa;
-  assign dcache_we_o = mem_mwe;
-  assign dcache_re_o = mem_mre;
+  assign dcache_we_o = mem_mwe && !mem_csr_take_ip;
+  assign dcache_re_o = mem_mre && !mem_csr_take_ip;
   assign dcache_byte_en = mem_mbe;
   assign dcache_data_o = mem_data;
   assign dcache_bypass_o = 1'b0;
@@ -514,24 +517,24 @@ module cu_pipeline (
   wire mem_wb_bubble;
 
   wire debug_pause;
-pipeline_state_recorder psr(
-  .if1_stall(pre_if_stall),
-  .if2_stall(if1_if2_stall),
-  .id_stall(if_id_stall),
-  .ex_stall(id_ex_stall),
-  .mem_stall(ex_mem_stall),
-  .if2_bubble(if1_if2_bubble),
-  .id_bubble(if_id_bubble),
-  .ex_bubble(id_ex_bubble),
-  .mem_bubble(ex_mem_bubble),
-  .wb_bubble(mem_wb_bubble)
-);
+// pipeline_state_recorder psr(
+//   .if1_stall(pre_if_stall),
+//   .if2_stall(if1_if2_stall),
+//   .id_stall(if_id_stall),
+//   .ex_stall(id_ex_stall),
+//   .mem_stall(ex_mem_stall),
+//   .if2_bubble(if1_if2_bubble),
+//   .id_bubble(if_id_bubble),
+//   .ex_bubble(id_ex_bubble),
+//   .mem_bubble(ex_mem_bubble),
+//   .wb_bubble(mem_wb_bubble)
+// );
   cu_orchestra cu_control (
       .if1_ip (if1_ip),
       .if1_ack(if1_mmu_ack),
 
       .if2_ip (if2_ip),
-      .if2_ack(if2_is_bubble || icache_ack_i),
+      .if2_ack(if2_page_fault || if2_is_bubble || icache_ack_i),
 
       .id_ip(id_ip),
       .id_raddr1(decoder_raddr1),
@@ -683,6 +686,7 @@ pipeline_state_recorder psr(
       .id_mwe(decoder_mwe),
       .ex_mwe(alu_mwe),
 
+      .ex_maddr(alu_maddr), 
       .id_mdata(id_mux_alu_op2),
       .ex_mdata(alu_mwdata),
 
@@ -745,7 +749,7 @@ pipeline_state_recorder psr(
       .ex_mbe (alu_mbe_adjusted),
       .mem_mbe(mem_mbe),
 
-      .ex_maddr (alu_op1 + ex_imm),
+      .ex_maddr (alu_maddr),
       .mem_maddr(mem_addr),
 
       .ex_mdata (alu_mwdata_adjusted),
@@ -817,7 +821,7 @@ pipeline_state_recorder psr(
       .mem_instr(mem_instr),
       .wb_instr (wb_instr),
 
-      .mem_we(mem_wbwe),
+      .mem_we(mem_wbwe && !mem_csr_take_ip),
       .wb_we (wb_we),
 
       .mem_mre(mem_mre),
@@ -842,47 +846,49 @@ pipeline_state_recorder psr(
       .mem_waludata(mem_wbdata),
       .wb_waludata (wb_aludata)
   );
-  // ila analyzer (
-  //     .clk(fast_clock),
-  //     .probe0(if1_ip),
-  //     .probe5(if2_ip),
-  //     .probe1(id_ip),
-  //     .probe2(alu_ip),
-  //     .probe3(mem_ip),
-  //     .probe4(wb_ip),
-  //     .probe6(id_instr),
-  //     .probe7(alu_instr),
-  //     .probe8(mem_instr),
-  //     .probe9(wb_instr),
-  //     .probe10(alt_data_mm.va),
-  //     .probe11(alt_data_mm.pa),
-  //     .probe12(alt_data_mm.mmu_state),
-  //     .probe13(alt_data_mm.va_req),
-  //     .probe14(alt_data_mm.tlb_we),
-  //     .probe15(alt_data_mm.tlb_wpte),
-  //     .probe16(alt_data_mm.tlb_wva),
-  //     .probe17(alt_data_mm.page_fault),
-  //     .probe18(alt_data_mm.page_fault_marker),
-  //     .probe19(alt_instr_mm.va),
-  //     .probe20(alt_instr_mm.pa),
-  //     .probe21(alt_instr_mm.mmu_state),
-  //     .probe22(alt_instr_mm.va_req),
-  //     .probe23(alt_instr_mm.tlb_we),
-  //     .probe24(alt_instr_mm.tlb_wpte),
-  //     .probe25(alt_instr_mm.tlb_wva),
-  //     .probe26(alt_instr_mm.page_fault),
-  //     .probe27(alt_instr_mm.page_fault_marker),
-  //     .probe28(csr_inst.instr),
-  //     .probe29(csr_inst.privilege),
-  //     .probe30(csr_inst.mstatus),
-  //     .probe31(csr_inst.mie),
-  //     .probe32(csr_inst.mepc),
-  //     .probe33(csr_inst.mtval),
-  //     .probe34(csr_inst.mip),
-  //     .probe35(csr_inst.mtime),
-  //     .probe36(csr_inst.timer_interrupt),
-  //     .probe37(csr_inst.cause_comb)
-  // );
+`ifndef SIM
+  ila analyzer (
+      .clk(fast_clock),
+      .probe0(if1_ip),
+      .probe5(if2_ip),
+      .probe1(id_ip),
+      .probe2(alu_ip),
+      .probe3(mem_ip),
+      .probe4(wb_ip),
+      .probe6(id_instr),
+      .probe7(alu_instr),
+      .probe8(mem_instr),
+      .probe9(wb_instr),
+      .probe10(alt_data_mm.va),
+      .probe11(alt_data_mm.pa),
+      .probe12(alt_data_mm.mmu_state),
+      .probe13(alt_data_mm.va_req),
+      .probe14(alt_data_mm.tlb_we),
+      .probe15(alt_data_mm.tlb_wpte),
+      .probe16(alt_data_mm.tlb_wva),
+      .probe17(alt_data_mm.page_fault),
+      .probe18(alt_data_mm.page_fault_marker),
+      .probe19(alt_instr_mm.va),
+      .probe20(alt_instr_mm.pa),
+      .probe21(alt_instr_mm.mmu_state),
+      .probe22(alt_instr_mm.va_req),
+      .probe23(alt_instr_mm.tlb_we),
+      .probe24(alt_instr_mm.tlb_wpte),
+      .probe25(alt_instr_mm.tlb_wva),
+      .probe26(alt_instr_mm.page_fault),
+      .probe27(alt_instr_mm.page_fault_marker),
+      .probe28(csr_inst.sepc),
+      .probe29(csr_inst.scause),
+      .probe30(csr_inst.stval),
+      .probe31(csr_inst.mcause),
+      .probe32(csr_inst.mepc),
+      .probe33(csr_inst.mtval),
+      .probe34(csr_inst.mip),
+      .probe35({icache_addr_o ,dcache_addr_o}),
+      .probe36(csr_inst.timer_interrupt),
+      .probe37(csr_inst.cause_comb)
+  );
+`endif
 endmodule
 
 module cu_orchestra (
@@ -1006,8 +1012,8 @@ module cu_orchestra (
 
     // =============================== Output pause/cancel/pc ================================
     // Derive pipeline status backwards.
-    mem_wb_stall = pause_global;
-    mem_wb_bubble = !mem_wb_stall && mem_wait_req;
+    mem_wb_stall = !csr_take_ip && pause_global;
+    mem_wb_bubble = csr_take_ip || (!mem_wb_stall && mem_wait_req);
 
 
     if (mem_wait_req) begin

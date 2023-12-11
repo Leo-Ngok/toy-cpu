@@ -7,6 +7,8 @@ module csr(
     output wire [31:0] rdata, // DATA that READS FROM CSR (writes to GP register files)
 
     input  wire [31:0] curr_ip, // Set MEPC
+    input wire          mem_mwe,
+    input wire          mem_flush,
     input  wire        timer_interrupt, // TIME'S UP!
 
     output wire       take_ip,
@@ -150,6 +152,9 @@ module csr(
     reg       take_ip_comb;
     reg [31:0] new_ip_comb;
     reg pause_global_comb; // XXX
+    reg handle_ti;
+    reg is_sys;
+    reg ti_available;
     always_comb begin
         mstatus_comb = mstatus;
         
@@ -159,6 +164,9 @@ module csr(
         take_ip_comb = 0;
         new_ip_comb = 32'h8000_0000;
         pause_global_comb = 0;
+        handle_ti = 1'b0;
+        is_sys = instr[6:0] == 7'b1110011;
+        ti_available = !is_sys && !mem_mwe && !mem_flush;
         casez(instr)
         MRET: begin
             take_ip_comb = 1;
@@ -280,20 +288,22 @@ module csr(
             if(
                 !take_ip_comb && 
                 ((privilege == MACHINE && mstatus[3]) || privilege != MACHINE) &&
-                (mie[7] && mip[7]) &&
+                (mie[7] && /*mip[7]*/ timer_interrupt && ti_available) &&
                 (mideleg[7] == 1'b0)
             ) begin
                 take_ip_comb = 1;
                 cause_comb = 32'h8000_0007; // machine timer interrupt.
                 next_priv = MACHINE;
+                handle_ti = 1'b1;
             end
             if(!take_ip_comb && 
              ((privilege == SUPERVISOR && mstatus[1]) || privilege == USER) &&
-                    (mie[5] && mip[5]) 
+                    (mie[5] && mip[5] && mideleg[5] && ti_available) 
             ) begin
                 take_ip_comb = 1;
                 cause_comb = 32'h8000_0005; // supervisor timer interrupt.
                 next_priv = SUPERVISOR;
+                handle_ti = 1'b1;
             end
             // ==============================================================
 

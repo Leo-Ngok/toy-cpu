@@ -23,9 +23,9 @@ module instr_decoder (
   parameter JALR = 7'b1100111;
   parameter BRANCH = 7'b1100011;
   parameter LOAD = 7'b0000011;
-  parameter STORE = 7'b0100011;
-  parameter ARITHI = 7'b0010011;
-  parameter ARITH = 7'b0110011;
+  parameter STORE = 7'b0100011; // S type
+  parameter ARITHI = 7'b0010011; // I type
+  parameter ARITH = 7'b0110011; // R type
   parameter SYSTEM = 7'b1110011;
   parameter FENCE_I = 7'b0001111;
   // system operations not implemented yet.
@@ -38,25 +38,33 @@ module instr_decoder (
   wire read2_en;
 
   assign opcode = instr[6:0];
+  wire i_type;
+  wire r_type;
+  wire s_type;
+  wire b_type;
+  wire u_type;
+  wire j_type;
 
-  assign write_en = !(opcode == BRANCH || opcode == STORE || clear_tlb || clear_icache);
-  assign read1_en = !(
-        opcode == LUI    || 
-        opcode == AUIPC  || 
-        opcode == JAL    ||
-        clear_tlb ||
-        clear_icache
-    );
-  assign read2_en = (
-        opcode == BRANCH ||
-        opcode == STORE  ||
-        opcode == ARITH
-    ) && !(clear_icache || clear_tlb);
+  assign i_type = (opcode == JALR) || (opcode == LOAD) || (opcode == ARITHI);
+  assign r_type = (opcode == ARITH);
+  assign s_type = (opcode == STORE);
+  assign b_type = (opcode == BRANCH);
+  assign u_type = (opcode == LUI) || (opcode == AUIPC);
+  assign j_type = (opcode == JAL);
+  // assign write_en = !(opcode == BRANCH || opcode == STORE || clear_tlb || clear_icache);
+  // assign read1_en = !(
+  //       opcode == LUI    || 
+  //       opcode == AUIPC  || 
+  //       opcode == JAL    ||
+  //       clear_tlb ||
+  //       clear_icache
+  //   );
+  // assign read2_en = (
+  //       opcode == BRANCH ||
+  //       opcode == STORE  ||
+  //       opcode == ARITH
+  //   ) && !(clear_icache || clear_tlb);
 
-  assign we = write_en;
-  assign waddr = write_en ? instr[11:7] : 5'b0;
-  assign raddr1 = read1_en ? instr[19:15] : 5'b0;
-  assign raddr2 = read2_en ? instr[24:20] : 5'b0;
 
   assign mem_re = opcode == LOAD;
   assign mem_we = opcode == STORE;
@@ -66,6 +74,14 @@ module instr_decoder (
   // volume 1 p.131
   assign clear_icache = opcode == FENCE_I && instr[14:12] == 3'b001;
   reg [31:0] immgen_c;
+
+  assign write_en = r_type || i_type || u_type || j_type || csr_acc ;
+  assign read1_en = r_type || i_type || s_type || b_type || (csr_acc && instr[14] != 1'b1);
+  assign read2_en = r_type || s_type || b_type;
+  assign we = write_en;
+  assign waddr = write_en ? instr[11:7] : 5'b0;
+  assign raddr1 = read1_en ? instr[19:15] : 5'b0;
+  assign raddr2 = read2_en ? instr[24:20] : 5'b0;
   always_comb begin
     immgen_c = 32'b0;
     case (opcode)
