@@ -111,6 +111,10 @@ module riscv_alu(
     parameter CSRRSI = 32'b????_????_????_?????_110_?????_1110011;
     parameter CSRRCI = 32'b????_????_????_?????_111_?????_1110011;
 
+    parameter PACK  = 32'b0000_100?_????_????_?100_????_?011_0011;
+    parameter SBSET = 32'b0010_100?_????_????_?001_????_?011_0011;
+    parameter CLZ   = 32'b0110_0000_0000_????_?001_????_?001_0011;
+
     reg [7:0] i1, i2, i3, i4;
     always_comb begin
         i1 = 0;
@@ -182,6 +186,23 @@ module riscv_alu(
                 out[31:24] = 8'b0;
             end
             end
+
+              PACK: begin
+                out[31:0] = ((in_1[31:0] << 16) >> 16) | (in_2[31:0] << 16);
+            end
+            SBSET: begin
+                out[31:0] = in_1[31:0] | (32'b1 << (in_2[31:0] & 31));
+            end
+            CLZ: begin
+                out[31:0] = 32'd32;
+                for (int count = 0; count < 31; count++) begin
+                    if ((in_1 << count) >> 31) begin
+                        out[31:0] = count;
+                        break;
+                    end
+                end
+            end
+
             default: out = 32'b0;
         endcase
     end

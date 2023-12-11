@@ -151,12 +151,20 @@ module display_controller #(
 //       endcase
 //     end
 //   end
+
+  parameter HMAX = 1040;
+  parameter VMAX = 666;
+  parameter HSIZE = 800;
+  parameter VSIZE = 600;
+
+  state_t state;
   reg cur_vram_exposed;
   reg [3:0] vram_we;
   reg [12:0] write_addr;
   reg [31:0] write_data;
 
   reg [14:0] read_addr;
+  reg [12:0] read_addr_ram;
   wire [1:0][31:0] read_data; 
   vga_mem vram0 (
       .clka (clk_i),
@@ -194,7 +202,7 @@ module display_controller #(
         write_data = wb_dat_i;
         wb_ack_o = 1'b1;
         end 
-        if(wb_adr_i == 32'h300F_0000) begin
+        if(wb_adr_i == 32'h300F_0000 && vga_vdata == VMAX - 1 && vga_hdata > HMAX - 15) begin
           wb_ack_o = 1'b1;
         end
       end else begin
@@ -211,7 +219,7 @@ module display_controller #(
     if(rst_i) begin
       cur_vram_exposed <= 1'b0;
     end else begin
-      if(wb_adr_i == 32'h300F_0000) begin
+      if(wb_adr_i == 32'h300F_0000 && vga_vdata == VMAX - 1 && vga_hdata > HMAX - 15) begin
         cur_vram_exposed <= wb_dat_i[0];
       end
     end
@@ -219,7 +227,6 @@ module display_controller #(
   reg [14:0] v_norm;
   reg [14:0] h_norm;
   reg [31:0] pixels_sel;
-  reg [12:0] read_addr_ram;
   reg [14:0] read_addr_prev;
   always_comb begin
     v_norm = {7'b0,vga_vdata[9:2]};
