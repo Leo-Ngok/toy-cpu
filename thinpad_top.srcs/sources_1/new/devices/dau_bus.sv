@@ -116,7 +116,7 @@ module dau_new (
     input  wire        vga_video_de,
     output reg [7:0] pixel, // VGA 输出像素数据
     input wire clk_50M,
-    
+    input wire rst_50M,
     // CLINT interrupt signal
     output wire        local_intr
 );
@@ -596,6 +596,7 @@ module dau_new (
 
       /* TODO: Other ports in interest. */
       .vga_clk(clk_50M),
+      .vga_rst(rst_50M),
       .vga_hdata(vga_hdata),
       .vga_vdata(vga_vdata),
       .vga_hsync(vga_hsync),

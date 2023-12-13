@@ -83,32 +83,43 @@ module thinpad_top (
   /* =========== Demo code begin =========== */
 
   // PLL 分频示例
-  logic locked, clk_10M, clk_20M;
+  logic locked, clk_40M, clk_75M;
 `ifndef SIM
   pll_example clock_gen (
       // Clock in ports
       .clk_in1(clk_50M),  // 外部时钟输入
       // Clock out ports
-      .clk_out1(clk_10M),  // 时钟输出 1，频率在 IP 配置界面中设置
-      .clk_out2(clk_20M),  // 时钟输出 2，频率在 IP 配置界面中设置
+      .clk_out1(clk_40M),  // 时钟输出 1，频率在 IP 配置界面中设置
+      .clk_out2(clk_75M),  // 时钟输出 2，频率在 IP 配置界面中设置
+      .clk_out3(clk_50_internal),
+      .clk_out4(clk_60M),
       // Status and control signals
       .reset(reset_btn),  // PLL 复位输入
       .locked(locked)  // PLL 锁定指示输出，"1"表示时钟稳定，
                        // 后级电路复位信号应当由它生成（见下）
   );
 
-  logic reset_of_clk10M;
-  // 异步复位，同步释放，将 locked 信号转为后级电路的复位 reset_of_clk10M
-  always_ff @(posedge clk_10M or negedge locked) begin
-    if (~locked) reset_of_clk10M <= 1'b1;
-    else reset_of_clk10M <= 1'b0;
+  logic reset_of_clk40M;
+  // 异步复位，同步释放，将 locked 信号转为后级电路的复位 reset_of_clk40M
+  always_ff @(posedge clk_40M or negedge locked) begin
+    if (~locked) reset_of_clk40M <= 1'b1;
+    else reset_of_clk40M <= 1'b0;
   end
+
+  
+  logic reset_of_clk50M;
+  // 异步复位，同步释放，将 locked 信号转为后级电路的复位 reset_of_clk50M
+  always_ff @(posedge clk_50_internal or negedge locked) begin
+    if (~locked) reset_of_clk50M <= 1'b1;
+    else reset_of_clk50M <= 1'b0;
+  end
+
 `endif
   logic sys_clk;
   logic sys_rst;
 `ifndef SIM
-  assign sys_clk  = clk_10M;
-  assign sys_rst  = reset_of_clk10M;
+  assign sys_clk  = clk_40M;
+  assign sys_rst  = reset_of_clk40M;
 `else
   assign sys_clk = clk_50M;
   assign sys_rst = reset_btn;
@@ -323,7 +334,8 @@ cache_alt dcache (
       .vga_vsync(video_vsync),
       .vga_video_de(video_de),
       .pixel(pixel),
-      .clk_50M(clk_50M),
+      .clk_50M(clk_50_internal),
+      .rst_50M(reset_of_clk50M),
 
       .local_intr(local_intr)
   );
@@ -432,8 +444,8 @@ cache_alt dcache (
   assign video_blue  = pixel[1:0];
   assign video_clk   = clk_50M;
   vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
-      .clk        (clk_50M),
-      .rst        (sys_rst),
+      .clk        (clk_50_internal),
+      .rst        (reset_of_clk50M),
       .hdata      (hdata),        // 横坐标
       .vdata      (vdata),        // 纵坐标
       .hsync      (video_hsync),

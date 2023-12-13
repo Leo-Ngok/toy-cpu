@@ -23,6 +23,7 @@ module display_controller #(
 
     // VGA ports
     input  wire        vga_clk,
+    input  wire        vga_rst,
     input  wire [11:0] vga_hdata,
     input  wire [ 9:0] vga_vdata,
     input  wire        vga_hsync,
@@ -69,7 +70,7 @@ module display_controller #(
   );
   reg vga_can_switch;
   always_ff @(posedge vga_clk) begin
-    if(rst_i ) begin
+    if(vga_rst) begin
       vga_can_switch <= 1'b0;
     end else begin
       vga_can_switch <= vga_vdata == VMAX - 1 && vga_hdata > HMAX - 15;
