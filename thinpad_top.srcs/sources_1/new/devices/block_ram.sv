@@ -76,6 +76,14 @@ module display_controller #(
       vga_can_switch <= vga_vdata == VMAX - 1 && vga_hdata > HMAX - 15;
     end
   end
+  reg vga_local_can_switch;
+  always_ff @(posedge clk_i) begin
+    if(rst_i) begin
+      vga_local_can_switch <= 1'b0;
+    end else begin
+      vga_local_can_switch <= vga_can_switch;
+    end
+  end
   always_comb begin
     vram_we = 4'b0;
     write_addr = 13'b0;
@@ -90,7 +98,7 @@ module display_controller #(
         write_data = wb_dat_i;
         wb_ack_o = 1'b1;
         end 
-        if(wb_adr_i == 32'h300F_0000 && vga_can_switch) begin
+        if(wb_adr_i == 32'h300F_0000 && vga_local_can_switch) begin
           wb_ack_o = 1'b1;
         end
       end else begin
@@ -107,7 +115,7 @@ module display_controller #(
     if(rst_i) begin
       cur_vram_exposed <= 1'b0;
     end else begin
-      if(wb_adr_i == 32'h300F_0000 && vga_can_switch) begin
+      if(wb_adr_i == 32'h300F_0000 && vga_local_can_switch) begin
         cur_vram_exposed <= wb_dat_i[0];
       end
     end
