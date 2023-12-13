@@ -83,7 +83,8 @@ module thinpad_top (
   /* =========== Demo code begin =========== */
 
   // PLL 分频示例
-  logic locked, clk_40M, clk_75M;
+  logic locked, clk_40M, clk_75M, clk_60M;
+  wire clk_50_internal;
 `ifndef SIM
   pll_example clock_gen (
       // Clock in ports
