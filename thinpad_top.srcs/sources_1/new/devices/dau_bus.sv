@@ -147,7 +147,7 @@ module dau_new (
 
   // dau_master -- For Data part
 
-  dau_master_comb #(
+  dau_master #(
       .ADDR_WIDTH(32),
       .DATA_WIDTH(32)
   ) master_0 (
@@ -173,7 +173,7 @@ module dau_new (
       .wb_sel_o(wbm_sel_o[0]),
       .wb_we_o (wbm_we_o[0])
   );
-  dau_master_comb #(
+  dau_master #(
       .ADDR_WIDTH(32),
       .DATA_WIDTH(32)
   ) master_1 (
@@ -199,7 +199,7 @@ module dau_new (
       .wb_sel_o(wbm_sel_o[1]),
       .wb_we_o (wbm_we_o[1])
   );
-  dau_master_comb #(
+  dau_master #(
       .ADDR_WIDTH(32),
       .DATA_WIDTH(32)
   ) master_2 (
@@ -225,7 +225,7 @@ module dau_new (
       .wb_sel_o(wbm_sel_o[2]),
       .wb_we_o (wbm_we_o[2])
   );
-  dau_master_comb #(
+  dau_master #(
       .ADDR_WIDTH(32),
       .DATA_WIDTH(32)
   ) master_3 (

@@ -448,7 +448,7 @@ module cu_pipeline (
       .rdata(mem_csrwb),
 
       .curr_ip(mem_ip),
-      .mem_mwe((mem_mre || mem_mwe) && !dcache_ack_i),
+      .mem_mwe(1'b0),
       .mem_flush(dau_cache_clear),
       .timer_interrupt(local_intr),
       .mtime(mtime),
@@ -476,8 +476,8 @@ module cu_pipeline (
   wire [31:0] pte_debug;
 
   assign dcache_addr_o = mem_dmmu_pa;
-  assign dcache_we_o = mem_mwe;
-  assign dcache_re_o = mem_mre;
+  assign dcache_we_o = mem_mwe && !mem_csr_take_ip;
+  assign dcache_re_o = mem_mre && !mem_csr_take_ip;
   assign dcache_byte_en = mem_mbe;
   assign dcache_data_o = mem_data;
   assign dcache_bypass_o = 1'b0;
